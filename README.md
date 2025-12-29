@@ -1,36 +1,92 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# MobileHub Delhi
 
-## Getting Started
+A professional CRM dashboard and e-commerce website for a second-hand mobile phone business in Delhi, India, with WhatsApp AI agent integration via n8n.
 
-First, run the development server:
+## 🚀 Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+### CRM Dashboard (`/admin`)
+- **Inventory Management** - Add, edit, and track mobile phones with detailed specs
+- **Condition Grading** - A+ to D grading system with quality checks
+- **Pricing in INR** - Cost price, selling price, MRP with discount calculation
+- **IMEI Tracking** - CEIR verification status
+- **Warranty Management** - 30/60/90 day seller warranty options
+- **Analytics Dashboard** - Sales trends, popular brands, revenue tracking
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Public Website
+- **Phone Catalog** - Browse all available phones with filters
+- **Detailed Product Pages** - Full specs, condition reports, battery health
+- **Brand Filtering** - Apple, Samsung, OnePlus, Xiaomi, Vivo, Oppo, Realme
+- **Price Range Filter** - Budget-based search
+- **WhatsApp Integration** - Click-to-chat with pre-filled messages
+- **Mobile Responsive** - Optimized for all devices
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### WhatsApp AI Agent (n8n)
+- **Automated Responses** - AI-powered replies to customer queries
+- **Inventory Search** - Real-time phone availability checks
+- **Hindi-English Mix** - Natural Delhi shopkeeper communication style
+- **Intent Detection** - Understands greetings, searches, price inquiries
+- **Suggestion Engine** - Recommends alternatives if exact match unavailable
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🛠️ Tech Stack
 
-## Learn More
+- **Framework**: Next.js 14 (App Router)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS + shadcn/ui
+- **Database**: Supabase (PostgreSQL)
+- **Icons**: Lucide React
+- **Automation**: n8n workflows
+- **AI**: OpenAI GPT (via n8n)
 
-To learn more about Next.js, take a look at the following resources:
+## 🚀 Getting Started
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Prerequisites
+- Node.js 18+
+- npm or yarn
+- Supabase account
+- WhatsApp Business API (for AI agent)
+- n8n instance (self-hosted or cloud)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Installation
 
-## Deploy on Vercel
+1. **Install Dependencies**
+   ```bash
+   npm install
+   ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+2. **Set Up Environment**
+   ```bash
+   cp .env.example .env.local
+   # Edit .env.local with your values
+   ```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+3. **Set Up Database**
+   - Create a Supabase project
+   - Run `supabase/schema.sql` in SQL Editor
+   - Copy project URL and keys to `.env.local`
+
+4. **Run Development Server**
+   ```bash
+   npm run dev
+   ```
+
+5. **Open in Browser**
+   - Website: http://localhost:3000
+   - CRM: http://localhost:3000/admin
+
+## 📱 API Endpoints
+
+- `GET /api/phones/search` - Search inventory
+- `GET /api/phones/[id]` - Get phone details
+- `POST /api/webhook/whatsapp` - n8n webhook
+
+## 🇮🇳 Indian Market Features
+
+- GST Compliance (18%)
+- IMEI Verification
+- INR Pricing (₹)
+- Hindi-English Support
+- Delhi Location
+
+---
+
+Built with ❤️ for Delhi's mobile market

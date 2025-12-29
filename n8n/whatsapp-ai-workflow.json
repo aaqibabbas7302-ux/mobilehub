@@ -1,0 +1,300 @@
+{
+  "name": "MobileHub Delhi - WhatsApp AI Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": ["messages"]
+      },
+      "id": "whatsapp-trigger",
+      "name": "WhatsApp Message Received",
+      "type": "n8n-nodes-base.whatsAppTrigger",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "credentials": {
+        "whatsAppApi": {
+          "id": "whatsapp-credentials",
+          "name": "WhatsApp Business API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "text-message",
+              "leftValue": "={{ $json.messages[0].type }}",
+              "rightValue": "text",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "filter-text",
+      "name": "Filter Text Messages",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [470, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract message details from WhatsApp trigger\nconst message = $input.first().json.messages[0];\nconst contact = $input.first().json.contacts[0];\n\n// Get customer details\nconst customerPhone = message.from;\nconst customerName = contact?.profile?.name || 'Customer';\nconst messageText = message.text?.body || '';\nconst messageId = message.id;\nconst timestamp = message.timestamp;\n\n// Parse the message for intent and search terms\nconst lowerMessage = messageText.toLowerCase();\n\n// Detect brand\nconst brandMap = {\n  'apple': 'Apple', 'iphone': 'Apple',\n  'samsung': 'Samsung', 'galaxy': 'Samsung',\n  'oneplus': 'OnePlus', 'one plus': 'OnePlus',\n  'xiaomi': 'Xiaomi', 'redmi': 'Xiaomi', 'mi ': 'Xiaomi',\n  'vivo': 'Vivo',\n  'oppo': 'Oppo',\n  'realme': 'Realme',\n  'google': 'Google', 'pixel': 'Google',\n  'nothing': 'Nothing'\n};\n\nlet detectedBrand = null;\nfor (const [keyword, brand] of Object.entries(brandMap)) {\n  if (lowerMessage.includes(keyword)) {\n    detectedBrand = brand;\n    break;\n  }\n}\n\n// Detect budget\nlet budget = null;\nconst budgetPatterns = [\n  /(?:under|below|within|upto|max|budget|range)?\\s*(?:rs\\.?|₹|inr)?\\s*(\\d{1,2})\\s*(?:k|K|thousand)/i,\n  /(?:under|below|within|upto|max|budget|range)?\\s*(?:rs\\.?|₹|inr)?\\s*(\\d{4,6})/i\n];\n\nfor (const pattern of budgetPatterns) {\n  const match = lowerMessage.match(pattern);\n  if (match) {\n    let num = parseInt(match[1]);\n    budget = num < 1000 ? num * 1000 : num;\n    break;\n  }\n}\n\n// Detect model name\nlet modelQuery = '';\nconst modelPatterns = [\n  /iphone\\s*(\\d+\\s*(?:pro|max|plus|mini)?)/i,\n  /galaxy\\s*(s\\d+|a\\d+|m\\d+|z\\s*(?:fold|flip)\\s*\\d*)/i,\n  /oneplus\\s*(\\d+[rtpro]*)/i,\n  /redmi\\s*(note\\s*\\d+|\\d+[a-z]*)/i,\n  /pixel\\s*(\\d+[a]*)/i\n];\n\nfor (const pattern of modelPatterns) {\n  const match = lowerMessage.match(pattern);\n  if (match) {\n    modelQuery = match[0];\n    break;\n  }\n}\n\n// Detect intent\nlet intent = 'search';\nconst greetings = ['hi', 'hello', 'hey', 'namaste', 'namaskar', 'good morning', 'good evening'];\nconst priceWords = ['price', 'rate', 'cost', 'kitna', 'kitne', 'kya rate', 'kya price'];\nconst availWords = ['available', 'stock', 'hai kya', 'milega', 'mil jayega', 'do you have'];\nconst buyWords = ['buy', 'kharidna', 'lena hai', 'chahiye', 'book', 'reserve'];\n\nif (greetings.some(g => lowerMessage.includes(g)) && lowerMessage.length < 30) {\n  intent = 'greeting';\n} else if (priceWords.some(w => lowerMessage.includes(w))) {\n  intent = 'price';\n} else if (availWords.some(w => lowerMessage.includes(w))) {\n  intent = 'availability';\n} else if (buyWords.some(w => lowerMessage.includes(w))) {\n  intent = 'purchase';\n}\n\nreturn {\n  customerPhone,\n  customerName,\n  messageText,\n  messageId,\n  timestamp,\n  intent,\n  detectedBrand,\n  modelQuery: modelQuery || detectedBrand || '',\n  budget,\n  isGreeting: intent === 'greeting'\n};"
+      },
+      "id": "extract-message",
+      "name": "Extract Message Details",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [690, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.isGreeting }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-greeting",
+      "name": "Is Greeting?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [910, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.MOBILEHUB_API_URL || 'http://localhost:3000' }}/api/phones/search",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": \"{{ $json.modelQuery }}\",\n  \"brand\": \"{{ $json.detectedBrand || '' }}\",\n  \"maxBudget\": {{ $json.budget || 'null' }},\n  \"limit\": 5\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "search-inventory",
+      "name": "Search Inventory API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1130, 400]
+    },
+    {
+      "parameters": {
+        "agent": "conversationalAgent",
+        "promptType": "define",
+        "text": "=You are a friendly and professional sales assistant for **MobileHub Delhi**, a trusted second-hand mobile phone shop located in Nehru Place, Delhi.\n\n## Customer Context\n- **Name**: {{ $('Extract Message Details').item.json.customerName }}\n- **Phone**: {{ $('Extract Message Details').item.json.customerPhone }}\n- **Message**: {{ $('Extract Message Details').item.json.messageText }}\n- **Intent**: {{ $('Extract Message Details').item.json.intent }}\n- **Looking for**: {{ $('Extract Message Details').item.json.detectedBrand || 'Any brand' }}\n- **Budget**: {{ $('Extract Message Details').item.json.budget ? '₹' + $('Extract Message Details').item.json.budget : 'Not specified' }}\n\n## Inventory Search Results\n{{ JSON.stringify($json, null, 2) }}\n\n## Your Task\nBased on the inventory data above, respond to the customer's query. Follow these guidelines:\n\n### Response Style\n- Be warm, friendly and professional\n- Use a mix of English and Hindi for authentic Delhi shopkeeper feel\n- Use words like \"Ji\", \"Bhai\", \"Bilkul\" naturally\n- Keep response concise (under 150 words) - perfect for WhatsApp\n- Use emojis sparingly for friendliness 📱✅\n\n### Content Guidelines\n1. **If phones found**: Share top 3-5 matching phones with:\n   - Model name and variant (storage/RAM)\n   - Price in ₹ format\n   - Condition grade and battery health %\n   - Any special features or accessories\n\n2. **If no exact match**: \n   - Apologize briefly\n   - Suggest alternative phones from suggestions list\n   - Offer to check for similar options\n\n3. **Always mention**:\n   - ✅ IMEI verified\n   - ✅ Quality tested with warranty\n   - 📍 Visit us at Nehru Place, Delhi\n\n4. **End with**: A question or call-to-action to continue conversation\n\n### Format\nUse WhatsApp-friendly formatting:\n- *bold* for emphasis\n- Line breaks for readability\n- Bullet points for lists",
+        "options": {
+          "systemMessage": "You are a sales assistant for MobileHub Delhi, a trusted second-hand mobile shop in Nehru Place, Delhi. Your job is to help customers find the perfect phone within their budget. Always be helpful, honest about phone conditions, and build trust. Key selling points: IMEI verified, 60-day warranty, quality tested, best prices in Delhi. Never make up inventory - only share phones from the search results provided."
+        }
+      },
+      "id": "ai-agent",
+      "name": "AI Agent - Generate Response",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.4,
+      "position": [1350, 400],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-credentials",
+          "name": "OpenAI API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate welcome message for greetings\nconst customerName = $('Extract Message Details').item.json.customerName;\nconst hour = new Date().getHours();\nlet greeting = 'Namaste';\nif (hour < 12) greeting = 'Good Morning';\nelse if (hour < 17) greeting = 'Good Afternoon';\nelse greeting = 'Good Evening';\n\nconst welcomeMessage = `${greeting} ${customerName} Ji! 🙏\n\nWelcome to *MobileHub Delhi* - Nehru Place ki sabse trusted second-hand mobile shop! 📱\n\nAap kya dhundh rahe ho? Mujhe bataiye:\n\n🔍 *Phone Model* - \"iPhone 13\" ya \"Samsung S23\"\n💰 *Budget* - \"Under 30k\" ya \"20-25k range\"\n📋 *Brand* - \"Show me OnePlus phones\"\n\n*Humari Guarantee:*\n✅ IMEI Verified - 100% genuine\n✅ Quality Tested - Full checkup\n✅ 60-Day Warranty - Peace of mind\n✅ Best Prices in Delhi!\n\n📍 *Visit:* Nehru Place, Delhi\n📞 *Call:* +91 99107 24940\n\nKaunsa phone dekhna chahte ho? 😊`;\n\nreturn {\n  response: welcomeMessage,\n  customerPhone: $('Extract Message Details').item.json.customerPhone\n};"
+      },
+      "id": "welcome-message",
+      "name": "Welcome Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1130, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare final response for WhatsApp\nconst customerPhone = $('Extract Message Details').first().json.customerPhone;\nlet response;\n\n// Check which branch we came from\nconst items = $input.all();\n\nif (items[0].json.response) {\n  // Welcome message branch\n  response = items[0].json.response;\n} else if (items[0].json.text) {\n  // AI Agent response\n  response = items[0].json.text;\n} else if (items[0].json.message?.content) {\n  // Alternative AI response format\n  response = items[0].json.message.content;\n} else {\n  // Fallback message\n  response = `Dhanyavaad for reaching out! 🙏\n\nHumse contact karne ke liye shukriya. Abhi hum aapki request check kar rahe hain.\n\nAap humein directly call bhi kar sakte ho: +91 99107 24940\n\n📍 Visit: Nehru Place, Delhi\n\nHum jaldi respond karenge! 😊`;\n}\n\n// Ensure response isn't too long for WhatsApp\nif (response.length > 4000) {\n  response = response.substring(0, 3900) + '\\n\\n_...aur details ke liye call karein!_';\n}\n\nreturn {\n  to: customerPhone,\n  message: response\n};"
+      },
+      "id": "prepare-response",
+      "name": "Prepare WhatsApp Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1570, 300]
+    },
+    {
+      "parameters": {
+        "operation": "sendMessage",
+        "phoneNumberId": "={{ $env.WHATSAPP_PHONE_NUMBER_ID }}",
+        "recipientPhoneNumber": "={{ $json.to }}",
+        "textBody": "={{ $json.message }}"
+      },
+      "id": "send-whatsapp",
+      "name": "Send WhatsApp Reply",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [1790, 300],
+      "credentials": {
+        "whatsAppApi": {
+          "id": "whatsapp-credentials",
+          "name": "WhatsApp Business API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.MOBILEHUB_API_URL || 'http://localhost:3000' }}/api/webhook/whatsapp",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"event\": \"message_sent\",\n  \"customerPhone\": \"{{ $json.to }}\",\n  \"messageSent\": true,\n  \"timestamp\": \"{{ new Date().toISOString() }}\"\n}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "log-conversation",
+      "name": "Log to MobileHub",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2010, 300]
+    }
+  ],
+  "connections": {
+    "WhatsApp Message Received": {
+      "main": [
+        [
+          {
+            "node": "Filter Text Messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Text Messages": {
+      "main": [
+        [
+          {
+            "node": "Extract Message Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Message Details": {
+      "main": [
+        [
+          {
+            "node": "Is Greeting?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Greeting?": {
+      "main": [
+        [
+          {
+            "node": "Welcome Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Search Inventory API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Inventory API": {
+      "main": [
+        [
+          {
+            "node": "AI Agent - Generate Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Welcome Message": {
+      "main": [
+        [
+          {
+            "node": "Prepare WhatsApp Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent - Generate Response": {
+      "main": [
+        [
+          {
+            "node": "Prepare WhatsApp Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare WhatsApp Response": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send WhatsApp Reply": {
+      "main": [
+        [
+          {
+            "node": "Log to MobileHub",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "instanceId": "mobilehub-delhi"
+  },
+  "tags": [
+    {
+      "name": "WhatsApp",
+      "id": "1"
+    },
+    {
+      "name": "AI Agent",
+      "id": "2"
+    },
+    {
+      "name": "MobileHub",
+      "id": "3"
+    }
+  ]
+}
