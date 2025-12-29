@@ -2,7 +2,7 @@
 
 import { CldUploadWidget, CloudinaryUploadWidgetResults } from "next-cloudinary";
 import { Button } from "@/components/ui/button";
-import { Upload, X, Image as ImageIcon } from "lucide-react";
+import { Upload, X, Image as ImageIcon, AlertTriangle } from "lucide-react";
 import { useState } from "react";
 
 interface CloudinaryUploadProps {
@@ -13,6 +13,9 @@ interface CloudinaryUploadProps {
   existingImages?: string[];
   onRemove?: (url: string) => void;
 }
+
+// Check if Cloudinary is configured
+const isCloudinaryConfigured = !!process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
 
 export function CloudinaryUpload({
   onUpload,
@@ -42,6 +45,19 @@ export function CloudinaryUpload({
 
   return (
     <div className="space-y-4">
+      {/* Show warning if Cloudinary not configured */}
+      {!isCloudinaryConfigured && (
+        <div className="flex items-center gap-3 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
+          <AlertTriangle className="w-5 h-5 text-yellow-500 flex-shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-yellow-500">Cloudinary not configured</p>
+            <p className="text-xs text-gray-500 mt-1">
+              Set NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME in your environment variables to enable image uploads.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Image Preview Grid */}
       {images.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -73,7 +89,7 @@ export function CloudinaryUpload({
       )}
 
       {/* Upload Button */}
-      {images.length < maxFiles && (
+      {isCloudinaryConfigured && images.length < maxFiles && (
         <CldUploadWidget
           uploadPreset="mobilehub_unsigned"
           options={{
