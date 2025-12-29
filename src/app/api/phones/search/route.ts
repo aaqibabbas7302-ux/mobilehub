@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
 
     // Apply search query
     if (query) {
-      dbQuery = dbQuery.or(`model_name.ilike.%${query}%,brand.ilike.%${query}%,description.ilike.%${query}%`);
+      dbQuery = dbQuery.or(`model_name.ilike.%${query}%,brand.ilike.%${query}%`);
     }
 
     // Apply price range
