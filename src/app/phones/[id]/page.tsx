@@ -37,9 +37,9 @@ interface PhoneDetail {
   color: string | null;
   condition_grade: string;
   battery_health_percent: number | null;
-  selling_price_paise: number;
-  cost_price_paise: number;
-  original_mrp_paise: number | null;
+  selling_price: number;
+  cost_price: number;
+  original_mrp: number | null;
   images: string[] | null;
   status: string;
   warranty_type: string | null;
@@ -123,8 +123,8 @@ export default function PhoneDetailPage() {
     );
   }
 
-  const price = phone.selling_price_paise / 100;
-  const originalPrice = phone.original_mrp_paise ? phone.original_mrp_paise / 100 : null;
+  const price = phone.selling_price;
+  const originalPrice = phone.original_mrp || null;
   const discount = originalPrice ? Math.round((1 - price / originalPrice) * 100) : 0;
   const condition = conditionLabels[phone.condition_grade] || phone.condition_grade;
   const gradient = gradients[phone.brand.length % gradients.length];

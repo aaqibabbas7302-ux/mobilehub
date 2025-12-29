@@ -59,8 +59,8 @@ export async function GET(request: NextRequest) {
 
     // Format phones for n8n/WhatsApp
     const formattedPhones = (phones || []).map((phone) => {
-      const sellingPrice = phone.selling_price_paise / 100;
-      const originalPrice = phone.original_mrp_paise ? phone.original_mrp_paise / 100 : null;
+      const sellingPrice = phone.selling_price;
+      const originalPrice = phone.original_mrp || null;
       const discount = originalPrice && originalPrice > sellingPrice
         ? Math.round(((originalPrice - sellingPrice) / originalPrice) * 100)
         : 0;

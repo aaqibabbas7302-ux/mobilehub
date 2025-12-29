@@ -28,14 +28,14 @@ export async function GET(
     if (inquiry.phone_id) {
       const { data: phoneData } = await supabase
         .from("phones")
-        .select("id, brand, model_name, variant, selling_price_paise, images")
+        .select("id, brand, model_name, variant, selling_price, images")
         .eq("id", inquiry.phone_id)
         .single();
       
       if (phoneData) {
         phone = {
           ...phoneData,
-          selling_price: phoneData.selling_price_paise / 100,
+          selling_price: phoneData.selling_price,
         };
       }
     }

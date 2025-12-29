@@ -45,9 +45,9 @@ interface PhoneItem {
   color: string | null;
   condition_grade: string;
   battery_health_percent: number | null;
-  selling_price_paise: number;
-  cost_price_paise: number;
-  original_mrp_paise: number | null;
+  selling_price: number;
+  cost_price: number;
+  original_mrp: number | null;
   images: string[] | null;
   status: string;
   created_at: string;
@@ -268,8 +268,8 @@ export default function InventoryPage() {
               </thead>
               <tbody>
                 {filteredPhones.map((phone) => {
-                  const price = phone.selling_price_paise / 100;
-                  const cost = phone.cost_price_paise / 100;
+                  const price = phone.selling_price;
+                  const cost = phone.cost_price;
                   const profit = price - cost;
                   const status = statusConfig[phone.status] || { label: phone.status, color: "bg-gray-500/20 text-gray-500" };
                   const condition = conditionLabels[phone.condition_grade] || phone.condition_grade;

@@ -19,9 +19,9 @@ export async function GET(request: NextRequest) {
 
     // Fetch all data in parallel
     const [phonesRes, ordersRes, customersRes, inquiriesRes] = await Promise.all([
-      supabase.from("phones").select("status, selling_price_paise, cost_price_paise, created_at"),
-      supabase.from("orders").select("status, final_amount_paise, created_at"),
-      supabase.from("customers").select("status, total_spent_paise, created_at"),
+      supabase.from("phones").select("status, selling_price, cost_price, created_at"),
+      supabase.from("orders").select("status, final_amount, created_at"),
+      supabase.from("customers").select("status, total_spent, created_at"),
       supabase.from("inquiries").select("status, source, created_at"),
     ]);
 
@@ -42,20 +42,20 @@ export async function GET(request: NextRequest) {
     const soldPhones = phones.filter(p => p.status === "Sold");
     const reservedPhones = phones.filter(p => p.status === "Reserved");
     
-    const inventoryValue = availablePhones.reduce((acc, p) => acc + (p.selling_price_paise || 0), 0) / 100;
-    const totalRevenue = soldPhones.reduce((acc, p) => acc + (p.selling_price_paise || 0), 0) / 100;
-    const totalProfit = soldPhones.reduce((acc, p) => acc + ((p.selling_price_paise || 0) - (p.cost_price_paise || 0)), 0) / 100;
+    const inventoryValue = availablePhones.reduce((acc, p) => acc + (p.selling_price || 0), 0);
+    const totalRevenue = soldPhones.reduce((acc, p) => acc + (p.selling_price || 0), 0);
+    const totalProfit = soldPhones.reduce((acc, p) => acc + ((p.selling_price || 0) - (p.cost_price || 0)), 0);
 
     // Order stats
     const completedOrders = orders.filter(o => o.status === "completed" || o.status === "delivered");
     const pendingOrders = orders.filter(o => o.status === "pending" || o.status === "processing");
-    const orderRevenue = completedOrders.reduce((acc, o) => acc + (o.final_amount_paise || 0), 0) / 100;
+    const orderRevenue = completedOrders.reduce((acc, o) => acc + (o.final_amount || 0), 0);
 
     // This month stats
     const ordersThisMonth = orders.filter(o => new Date(o.created_at) >= thisMonth);
     const revenueThisMonth = ordersThisMonth
       .filter(o => o.status === "completed" || o.status === "delivered")
-      .reduce((acc, o) => acc + (o.final_amount_paise || 0), 0) / 100;
+      .reduce((acc, o) => acc + (o.final_amount || 0), 0);
 
     // Last month stats for comparison
     const ordersLastMonth = orders.filter(o => {
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
     });
     const revenueLastMonth = ordersLastMonth
       .filter(o => o.status === "completed" || o.status === "delivered")
-      .reduce((acc, o) => acc + (o.final_amount_paise || 0), 0) / 100;
+      .reduce((acc, o) => acc + (o.final_amount || 0), 0);
 
     // Calculate growth percentages
     const revenueGrowth = revenueLastMonth > 0 
@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
     // Recent activity
     const { data: recentOrders } = await supabase
       .from("orders")
-      .select("id, order_number, customer_name, phone_name, final_amount_paise, status, created_at")
+      .select("id, order_number, customer_name, phone_name, final_amount, status, created_at")
       .order("created_at", { ascending: false })
       .limit(5);
 
@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
 
     const { data: recentPhones } = await supabase
       .from("phones")
-      .select("id, brand, model_name, selling_price_paise, status, created_at")
+      .select("id, brand, model_name, selling_price, status, created_at")
       .order("created_at", { ascending: false })
       .limit(5);
 
@@ -149,14 +149,14 @@ export async function GET(request: NextRequest) {
       recent: {
         orders: recentOrders?.map(o => ({
           ...o,
-          final_amount: o.final_amount_paise / 100,
-          final_amount_formatted: formatPrice(o.final_amount_paise / 100),
+          final_amount: o.final_amount,
+          final_amount_formatted: formatPrice(o.final_amount),
         })) || [],
         inquiries: recentInquiries || [],
         phones: recentPhones?.map(p => ({
           ...p,
-          selling_price: p.selling_price_paise / 100,
-          selling_price_formatted: formatPrice(p.selling_price_paise / 100),
+          selling_price: p.selling_price,
+          selling_price_formatted: formatPrice(p.selling_price),
         })) || [],
       },
     };

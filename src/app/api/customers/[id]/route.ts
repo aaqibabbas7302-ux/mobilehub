@@ -33,12 +33,12 @@ export async function GET(
     return NextResponse.json({ 
       customer: {
         ...customer,
-        total_spent: customer.total_spent_paise / 100,
+        total_spent: customer.total_spent,
       },
       orders: orders?.map(o => ({
         ...o,
-        amount: o.amount_paise / 100,
-        final_amount: o.final_amount_paise / 100,
+        amount: o.amount,
+        final_amount: o.final_amount,
       })) || []
     });
   } catch (error) {

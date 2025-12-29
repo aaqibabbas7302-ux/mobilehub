@@ -36,8 +36,8 @@ interface PhoneItem {
   color: string | null;
   condition_grade: string;
   battery_health_percent: number | null;
-  selling_price_paise: number;
-  original_mrp_paise: number | null;
+  selling_price: number;
+  original_mrp: number | null;
   images: string[] | null;
   status: string;
 }
@@ -104,9 +104,9 @@ export default function PhonesPage() {
   const sortedPhones = [...filteredPhones].sort((a, b) => {
     switch (sortBy) {
       case "price_low":
-        return a.selling_price_paise - b.selling_price_paise;
+        return a.selling_price - b.selling_price;
       case "price_high":
-        return b.selling_price_paise - a.selling_price_paise;
+        return b.selling_price - a.selling_price;
       default:
         return 0;
     }
@@ -202,8 +202,8 @@ export default function PhonesPage() {
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {sortedPhones.map((phone, index) => {
-              const price = phone.selling_price_paise / 100;
-              const originalPrice = phone.original_mrp_paise ? phone.original_mrp_paise / 100 : null;
+              const price = phone.selling_price;
+              const originalPrice = phone.original_mrp || null;
               const discount = originalPrice ? Math.round((1 - price / originalPrice) * 100) : 0;
               const condition = conditionLabels[phone.condition_grade] || phone.condition_grade;
 

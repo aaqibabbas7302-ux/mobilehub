@@ -41,11 +41,11 @@ export interface Phone {
   bluetooth_working: boolean;
   charging_port_condition: string;
   
-  // Pricing (in paise)
-  cost_price_paise: number;
-  selling_price_paise: number;
-  original_mrp_paise?: number;
-  minimum_price_paise?: number;
+  // Pricing (in rupees)
+  cost_price: number;
+  selling_price: number;
+  original_mrp?: number;
+  minimum_price?: number;
   
   // Refurbishment
   is_refurbished: boolean;
@@ -108,7 +108,7 @@ export interface Customer {
   city: string;
   pincode?: string;
   total_purchases: number;
-  total_spent_paise: number;
+  total_spent: number;
   notes?: string;
   created_at: string;
   updated_at: string;
@@ -125,10 +125,10 @@ export interface Order {
   customer_address?: string;
   
   // Pricing
-  selling_price_paise: number;
-  discount_paise: number;
-  gst_amount_paise: number;
-  final_amount_paise: number;
+  selling_price: number;
+  discount: number;
+  gst_amount: number;
+  final_amount: number;
   
   // Payment
   payment_method?: PaymentMethod;

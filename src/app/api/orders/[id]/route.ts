@@ -26,9 +26,9 @@ export async function GET(
     return NextResponse.json({ 
       order: {
         ...order,
-        amount: order.amount_paise / 100,
-        discount: order.discount_paise / 100,
-        final_amount: order.final_amount_paise / 100,
+        amount: order.amount,
+        discount: order.discount,
+        final_amount: order.final_amount,
       }
     });
   } catch (error) {
@@ -105,9 +105,9 @@ export async function PUT(
     return NextResponse.json({ 
       order: {
         ...data,
-        amount: data.amount_paise / 100,
-        discount: data.discount_paise / 100,
-        final_amount: data.final_amount_paise / 100,
+        amount: data.amount,
+        discount: data.discount,
+        final_amount: data.final_amount,
       }, 
       message: "Order updated successfully" 
     });

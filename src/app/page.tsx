@@ -37,8 +37,8 @@ interface PhoneItem {
   brand: string;
   model_name: string;
   variant: string;
-  selling_price_paise: number;
-  original_mrp_paise: number;
+  selling_price: number;
+  original_mrp: number;
   condition_grade: string;
   battery_health_percent: number;
   images: string[];
@@ -419,9 +419,9 @@ export default function HomePage() {
                       {/* Price */}
                       <div className="flex items-end justify-between pt-2">
                         <div>
-                          <p className="text-2xl font-bold text-orange-500">{formatPrice(phone.selling_price_paise / 100)}</p>
-                          {phone.original_mrp_paise && (
-                            <p className="text-sm text-gray-500 line-through">{formatPrice(phone.original_mrp_paise / 100)}</p>
+                          <p className="text-2xl font-bold text-orange-500">{formatPrice(phone.selling_price)}</p>
+                          {phone.original_mrp && (
+                            <p className="text-sm text-gray-500 line-through">{formatPrice(phone.original_mrp)}</p>
                           )}
                         </div>
                         <div className="w-10 h-10 rounded-full bg-orange-500 flex items-center justify-center group-hover:scale-110 transition-transform">

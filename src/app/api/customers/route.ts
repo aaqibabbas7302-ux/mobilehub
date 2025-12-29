@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Calculate stats
-    const allCustomers = await supabase.from("customers").select("status, total_spent_paise");
+    const allCustomers = await supabase.from("customers").select("status, total_spent");
     const customersData = allCustomers.data || [];
     
     const stats = {
@@ -43,14 +43,14 @@ export async function GET(request: NextRequest) {
       active: customersData.filter(c => c.status === "active").length,
       new: customersData.filter(c => c.status === "new").length,
       avgOrderValue: customersData.length > 0 
-        ? Math.round(customersData.reduce((acc, c) => acc + (c.total_spent_paise || 0), 0) / customersData.length / 100)
+        ? Math.round(customersData.reduce((acc, c) => acc + (c.total_spent || 0), 0) / customersData.length)
         : 0,
     };
 
     return NextResponse.json({ 
       customers: customers?.map(c => ({
         ...c,
-        total_spent: c.total_spent_paise / 100,
+        total_spent: c.total_spent,
       })),
       count,
       stats

@@ -40,10 +40,10 @@ export async function GET(
       throw error;
     }
 
-    // Convert prices from paise to rupees
-    const sellingPrice = phone.selling_price_paise / 100;
-    const originalPrice = phone.original_mrp_paise ? phone.original_mrp_paise / 100 : null;
-    const costPrice = phone.cost_price_paise / 100;
+    // Use rupee values directly (no paise conversion)
+    const sellingPrice = phone.selling_price;
+    const originalPrice = phone.original_mrp || null;
+    const costPrice = phone.cost_price;
     
     // Calculate discount
     const discount = originalPrice && originalPrice > sellingPrice
@@ -136,10 +136,10 @@ export async function PUT(
       );
     }
 
-    // Convert prices to paise (1 INR = 100 paise)
-    const sellingPricePaise = Math.round(parseFloat(price) * 100);
-    const originalMrpPaise = originalPrice ? Math.round(parseFloat(originalPrice) * 100) : null;
-    const costPricePaise = cost ? Math.round(parseFloat(cost) * 100) : sellingPricePaise;
+    // Use rupee values directly (no paise conversion)
+    const sellingPrice = parseFloat(price);
+    const originalMrp = originalPrice ? parseFloat(originalPrice) : null;
+    const costPrice = cost ? parseFloat(cost) : sellingPrice;
 
     const phoneData = {
       brand,
@@ -150,9 +150,9 @@ export async function PUT(
       imei_1: imei,
       condition_grade: condition || "B",
       battery_health_percent: batteryHealth ? parseInt(batteryHealth) : null,
-      cost_price_paise: costPricePaise,
-      selling_price_paise: sellingPricePaise,
-      original_mrp_paise: originalMrpPaise,
+      cost_price: costPrice,
+      selling_price: sellingPrice,
+      original_mrp: originalMrp,
       images: images || [],
       thumbnail_url: images?.[0] || null,
       status: status || "Available",

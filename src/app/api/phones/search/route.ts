@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-function formatPrice(paise: number): string {
-  const rupees = paise / 100;
+function formatPrice(rupees: number): string {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
@@ -17,8 +16,8 @@ export async function GET(request: NextRequest) {
   // Get filter parameters
   const query = searchParams.get("query")?.toLowerCase() || "";
   const brand = searchParams.get("brand");
-  const minPrice = searchParams.get("minPrice") ? parseInt(searchParams.get("minPrice")!) * 100 : null;
-  const maxPrice = searchParams.get("maxPrice") ? parseInt(searchParams.get("maxPrice")!) * 100 : null;
+  const minPrice = searchParams.get("minPrice") ? parseInt(searchParams.get("minPrice")!) : null;
+  const maxPrice = searchParams.get("maxPrice") ? parseInt(searchParams.get("maxPrice")!) : null;
   const status = searchParams.get("status") || "Available";
   const limit = searchParams.get("limit") ? parseInt(searchParams.get("limit")!) : 10;
 
@@ -45,10 +44,10 @@ export async function GET(request: NextRequest) {
 
   // Apply price range
   if (minPrice) {
-    dbQuery = dbQuery.gte("selling_price_paise", minPrice);
+    dbQuery = dbQuery.gte("selling_price", minPrice);
   }
   if (maxPrice) {
-    dbQuery = dbQuery.lte("selling_price_paise", maxPrice);
+    dbQuery = dbQuery.lte("selling_price", maxPrice);
   }
 
   // Apply limit
@@ -75,8 +74,8 @@ export async function GET(request: NextRequest) {
     color: phone.color || "",
     condition: phone.condition || "",
     battery: phone.battery_health ? `${phone.battery_health}%` : "N/A",
-    price: formatPrice(phone.selling_price_paise),
-    priceRaw: phone.selling_price_paise / 100,
+    price: formatPrice(phone.selling_price),
+    priceRaw: phone.selling_price,
     warranty: phone.warranty_months ? `${phone.warranty_months} Days` : "No Warranty",
     status: phone.status,
     images: phone.images || [],
@@ -84,7 +83,7 @@ export async function GET(request: NextRequest) {
     whatsappText: `📱 *${phone.brand} ${phone.model_name}*\n` +
       `💾 ${phone.storage || "N/A"} | 🎨 ${phone.color || "N/A"}\n` +
       `⭐ ${phone.condition || "Good"} | 🔋 ${phone.battery_health || "N/A"}%\n` +
-      `💰 *${formatPrice(phone.selling_price_paise)}*\n` +
+      `💰 *${formatPrice(phone.selling_price)}*\n` +
       `📦 ${phone.warranty_months ? phone.warranty_months + " Days Warranty" : "No Warranty"}\n` +
       `🔗 View: ${process.env.NEXT_PUBLIC_SITE_URL || 'https://mobilehub.delhi'}/phones/${phone.id}`,
   }));
@@ -114,7 +113,7 @@ export async function POST(request: NextRequest) {
       .from("phones")
       .select("*")
       .eq("status", "Available")
-      .order("selling_price_paise", { ascending: true });
+      .order("selling_price", { ascending: true });
 
     // Apply brand filter
     if (brand) {
@@ -126,12 +125,12 @@ export async function POST(request: NextRequest) {
       dbQuery = dbQuery.or(`model_name.ilike.%${query}%,brand.ilike.%${query}%`);
     }
 
-    // Apply price range
+    // Apply price range (prices are now in rupees directly)
     if (minBudget) {
-      dbQuery = dbQuery.gte("selling_price_paise", minBudget * 100);
+      dbQuery = dbQuery.gte("selling_price", minBudget);
     }
     if (maxBudget) {
-      dbQuery = dbQuery.lte("selling_price_paise", maxBudget * 100);
+      dbQuery = dbQuery.lte("selling_price", maxBudget);
     }
 
     // Apply limit
@@ -156,7 +155,7 @@ export async function POST(request: NextRequest) {
           .select("*")
           .eq("status", "Available")
           .ilike("brand", `%${brand}%`)
-          .order("selling_price_paise", { ascending: true })
+          .order("selling_price", { ascending: true })
           .limit(3);
         suggestions = brandSuggestions || [];
       }
@@ -166,8 +165,8 @@ export async function POST(request: NextRequest) {
           .from("phones")
           .select("*")
           .eq("status", "Available")
-          .lte("selling_price_paise", maxBudget * 100 * 1.2)
-          .order("selling_price_paise", { ascending: true })
+          .lte("selling_price", maxBudget * 1.2)
+          .order("selling_price", { ascending: true })
           .limit(3);
         suggestions = priceSuggestions || [];
       }
@@ -191,13 +190,13 @@ export async function POST(request: NextRequest) {
       model: phone.model_name,
       variant: phone.storage || "",
       color: phone.color || "",
-      price: formatPrice(phone.selling_price_paise),
-      priceRaw: phone.selling_price_paise / 100,
+      price: formatPrice(phone.selling_price),
+      priceRaw: phone.selling_price,
       condition: phone.condition || "Good",
       battery: phone.battery_health || null,
       warranty: phone.warranty_months ? `${phone.warranty_months} Days` : null,
       images: phone.images || [],
-      whatsapp_link: `https://wa.me/919910724940?text=${encodeURIComponent(`Hi! I'm interested in ${phone.brand} ${phone.model_name} (${formatPrice(phone.selling_price_paise)})`)}`,
+      whatsapp_link: `https://wa.me/919910724940?text=${encodeURIComponent(`Hi! I'm interested in ${phone.brand} ${phone.model_name} (${formatPrice(phone.selling_price)})`)}`,
     });
 
     // Generate text response for n8n AI agent
@@ -206,7 +205,7 @@ export async function POST(request: NextRequest) {
       textResponse = `Found ${results.length} phone(s):\n\n`;
       results.forEach((phone, i) => {
         textResponse += `${i + 1}. *${phone.brand} ${phone.model_name}*\n`;
-        textResponse += `   💰 ${formatPrice(phone.selling_price_paise)}\n`;
+        textResponse += `   💰 ${formatPrice(phone.selling_price)}\n`;
         if (phone.storage) textResponse += `   💾 ${phone.storage}\n`;
         if (phone.condition) textResponse += `   ✨ ${phone.condition}\n`;
         textResponse += "\n";
@@ -215,7 +214,7 @@ export async function POST(request: NextRequest) {
     } else if (suggestions.length > 0) {
       textResponse = "We don't have an exact match, but here are similar options:\n\n";
       suggestions.forEach((phone, i) => {
-        textResponse += `${i + 1}. *${phone.brand} ${phone.model_name}* - ${formatPrice(phone.selling_price_paise)}\n`;
+        textResponse += `${i + 1}. *${phone.brand} ${phone.model_name}* - ${formatPrice(phone.selling_price)}\n`;
       });
     } else {
       textResponse = "Sorry, no phones available matching your criteria. Please try a different search or contact us for help!";
