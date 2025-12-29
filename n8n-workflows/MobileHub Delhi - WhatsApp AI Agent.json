@@ -1,0 +1,411 @@
+{
+  "name": "MobileHub Delhi - WhatsApp AI Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "messages"
+        ],
+        "options": {}
+      },
+      "id": "9d058941-70e9-4b80-a79f-d034c7283867",
+      "name": "WhatsApp Message Received",
+      "type": "n8n-nodes-base.whatsAppTrigger",
+      "typeVersion": 1,
+      "position": [
+        -480,
+        288
+      ],
+      "webhookId": "5d06f98e-c1af-483d-87a3-8bb58f789e33",
+      "credentials": {
+        "whatsAppTriggerApi": {
+          "id": "EhsFeeJjzwAmhDJp",
+          "name": "WhatsApp OAuth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "text-message",
+              "leftValue": "={{ $json.messages[0].type }}",
+              "rightValue": "text",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ffa27c71-eaa8-49f1-abe1-ff70861a67ec",
+      "name": "Filter Text Messages",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [
+        -256,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract message details from WhatsApp trigger\nconst message = $input.first().json.messages[0];\nconst contact = $input.first().json.contacts[0];\n\n// Get customer details\nconst customerPhone = message.from;\nconst customerName = contact?.profile?.name || 'Customer';\nconst messageText = message.text?.body || '';\nconst messageId = message.id;\nconst timestamp = message.timestamp;\n\n// Parse the message for intent and search terms\nconst lowerMessage = messageText.toLowerCase();\n\n// Detect brand\nconst brandMap = {\n  'apple': 'Apple', 'iphone': 'Apple',\n  'samsung': 'Samsung', 'galaxy': 'Samsung',\n  'oneplus': 'OnePlus', 'one plus': 'OnePlus',\n  'xiaomi': 'Xiaomi', 'redmi': 'Xiaomi', 'mi ': 'Xiaomi',\n  'vivo': 'Vivo',\n  'oppo': 'Oppo',\n  'realme': 'Realme',\n  'google': 'Google', 'pixel': 'Google',\n  'nothing': 'Nothing'\n};\n\nlet detectedBrand = null;\nfor (const [keyword, brand] of Object.entries(brandMap)) {\n  if (lowerMessage.includes(keyword)) {\n    detectedBrand = brand;\n    break;\n  }\n}\n\n// Detect budget\nlet budget = null;\nconst budgetPatterns = [\n  /(?:under|below|within|upto|max|budget|range)?\\s*(?:rs\\.?|₹|inr)?\\s*(\\d{1,2})\\s*(?:k|K|thousand)/i,\n  /(?:under|below|within|upto|max|budget|range)?\\s*(?:rs\\.?|₹|inr)?\\s*(\\d{4,6})/i\n];\n\nfor (const pattern of budgetPatterns) {\n  const match = lowerMessage.match(pattern);\n  if (match) {\n    let num = parseInt(match[1]);\n    budget = num < 1000 ? num * 1000 : num;\n    break;\n  }\n}\n\n// Detect model name\nlet modelQuery = '';\nconst modelPatterns = [\n  /iphone\\s*(\\d+\\s*(?:pro|max|plus|mini)?)/i,\n  /galaxy\\s*(s\\d+|a\\d+|m\\d+|z\\s*(?:fold|flip)\\s*\\d*)/i,\n  /oneplus\\s*(\\d+[rtpro]*)/i,\n  /redmi\\s*(note\\s*\\d+|\\d+[a-z]*)/i,\n  /pixel\\s*(\\d+[a]*)/i\n];\n\nfor (const pattern of modelPatterns) {\n  const match = lowerMessage.match(pattern);\n  if (match) {\n    modelQuery = match[0];\n    break;\n  }\n}\n\n// Detect intent\nlet intent = 'search';\nconst greetings = ['hi', 'hello', 'hey', 'namaste', 'namaskar', 'good morning', 'good evening'];\nconst priceWords = ['price', 'rate', 'cost', 'kitna', 'kitne', 'kya rate', 'kya price'];\nconst availWords = ['available', 'stock', 'hai kya', 'milega', 'mil jayega', 'do you have'];\nconst buyWords = ['buy', 'kharidna', 'lena hai', 'chahiye', 'book', 'reserve'];\n\nif (greetings.some(g => lowerMessage.includes(g)) && lowerMessage.length < 30) {\n  intent = 'greeting';\n} else if (priceWords.some(w => lowerMessage.includes(w))) {\n  intent = 'price';\n} else if (availWords.some(w => lowerMessage.includes(w))) {\n  intent = 'availability';\n} else if (buyWords.some(w => lowerMessage.includes(w))) {\n  intent = 'purchase';\n}\n\nreturn {\n  customerPhone,\n  customerName,\n  messageText,\n  messageId,\n  timestamp,\n  intent,\n  detectedBrand,\n  modelQuery: modelQuery || detectedBrand || '',\n  budget,\n  isGreeting: intent === 'greeting'\n};"
+      },
+      "id": "b5e6000e-1708-4a55-acac-9df57c65f0aa",
+      "name": "Extract Message Details",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -32,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.isGreeting }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "188bfe6d-8475-429c-8f88-a96ff92289f4",
+      "name": "Is Greeting?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        192,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://mobilehub-sand.vercel.app/api/phones/search",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": \"{{ $json.modelQuery }}\",\n  \"brand\": \"{{ $json.detectedBrand || '' }}\",\n  \"maxBudget\": {{ $json.budget || 'null' }},\n  \"limit\": 5\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "ad28c063-b976-4d4f-b0ca-39bca084eadc",
+      "name": "Search Inventory API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        416,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate welcome message for greetings (Indian Time - IST)\nconst customerName = $('Extract Message Details').item.json.customerName;\n\n// Get current hour in Indian Standard Time\nconst istHour = new Date(\n  new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })\n).getHours();\n\nlet greeting = 'Namaste';\nif (istHour < 12) greeting = 'Good Morning';\nelse if (istHour < 17) greeting = 'Good Afternoon';\nelse greeting = 'Good Evening';\n\nconst welcomeMessage = `${greeting} ${customerName} Ji! 🙏\n\nWelcome to *MobileHub Delhi* - Nehru Place ki sabse trusted second-hand mobile shop! 📱\n\nAap kya dhundh rahe ho? Mujhe bataiye:\n\n🔍 *Phone Model* - \"iPhone 13\" ya \"Samsung S23\"\n💰 *Budget* - \"Under 30k\" ya \"20-25k range\"\n📋 *Brand* - \"Show me OnePlus phones\"\n\n*Humari Guarantee:*\n✅ IMEI Verified - 100% genuine\n✅ Quality Tested - Full checkup\n✅ 60-Day Warranty - Peace of mind\n✅ Best Prices in Delhi!\n\n📍 *Visit:* Nehru Place, Delhi\n📞 *Call:* +91 98765 43210\n\nKaunsa phone dekhna chahte ho? 😊`;\n\nreturn {\n  response: welcomeMessage,\n  customerPhone: $('Extract Message Details').item.json.customerPhone,\n  customerName: customerName,\n  customerMessage: $('Extract Message Details').item.json.messageText,\n  botReply: welcomeMessage,\n  intent: $('Extract Message Details').item.json.intent\n};\n"
+      },
+      "id": "c5ff573d-e518-4772-813a-ad34332b7bbd",
+      "name": "Welcome Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        928,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "={{ $('WhatsApp Message Received').item.json.metadata.phone_number_id }}",
+        "recipientPhoneNumber": "={{ $('WhatsApp Message Received').item.json.contacts[0].wa_id }}",
+        "textBody": "={{ $json.response || $json.output }}",
+        "additionalFields": {}
+      },
+      "id": "94e412e9-0aea-4560-8d31-affd5467dbb6",
+      "name": "Send WhatsApp Reply",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [
+        1216,
+        288
+      ],
+      "webhookId": "c0d592ca-9c5f-45cc-88bc-cffc9fa97bd7",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "97lZPuJWYH8XDWio",
+          "name": "WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Customer: {{ $('Extract Message Details').item.json.messageText }}\n\nName: {{ $('Extract Message Details').item.json.customerName }}\nBrand: {{ $('Extract Message Details').item.json.detectedBrand || 'Any' }}\nBudget: {{ $('Extract Message Details').item.json.budget ? '₹' + $('Extract Message Details').item.json.budget : 'Not specified' }}\n\nPHONES FOUND ({{ $json.count }}):\n{{ JSON.stringify($json.data, null, 2) }}\n\nReply in Hinglish, be helpful, under 150 words!",
+        "options": {
+          "systemMessage": "=You are MobileHub Assistant - friendly Delhi mobile shop salesman. Shop: Nehru Place, Delhi. Contact: +91 99107 24940.\n\nRULES:\n- Use Hinglish (Hindi + English mix)\n- Use words: \"Ji\", \"Bhai\", \"Bilkul\", \"Ekdum\", \"Pakka\"\n- Keep response under 150 words\n- Show: Model, Price ₹, Condition Grade, Battery %\n- Always mention: IMEI verified, 60-day warranty\n- If no phones: suggest alternatives, offer to notify\n- End with question to continue chat\n\nCONDITION GRADES:\n- A+ = Like new, 90%+ battery\n- A = Minor scratches, 85%+ battery  \n- B+ = Visible wear, 80%+ battery\n- B = Noticeable wear, 75%+ battery"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        864,
+        448
+      ],
+      "id": "6d955b39-5670-4087-bf9d-d0da164e2db1",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        880,
+        672
+      ],
+      "id": "9ae2c167-f67d-40d7-8f0a-9ebf5e1e772e",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "8K9DoMqjoIJw6MEi",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        1008,
+        672
+      ],
+      "id": "8265152f-5851-40f3-a74b-f944fd6a51a7",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "sessionId",
+              "value": "={{ $('Extract Message Details').item.json.customerPhone }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "07f38f5e-abc7-4ec0-bab7-9bca68eb2788",
+      "name": "Add Session ID",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        640,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare conversation data for inquiry API\nconst extractedData = $('Extract Message Details').item.json;\nconst customerName = extractedData.customerName;\nconst customerPhone = extractedData.customerPhone;\nconst customerMessage = extractedData.messageText;\nconst intent = extractedData.intent;\nconst detectedBrand = extractedData.detectedBrand;\nconst budget = extractedData.budget;\n\n// Get the bot reply - could be from Welcome Message or AI Agent\nlet botReply = '';\ntry {\n  // Try to get from Welcome Message first\n  botReply = $('Welcome Message').item.json.response || '';\n} catch (e) {\n  // If not from Welcome Message, get from AI Agent\n  try {\n    botReply = $('AI Agent').item.json.output || '';\n  } catch (e2) {\n    botReply = $json.output || $json.response || '';\n  }\n}\n\n// Format as conversation\nconst conversationText = `📱 WhatsApp Conversation\\n\\n👤 Customer: ${customerMessage}\\n\\n🤖 Bot Reply: ${botReply}\\n\\n---\\nIntent: ${intent}\\nBrand: ${detectedBrand || 'Not specified'}\\nBudget: ${budget ? '₹' + budget : 'Not specified'}`;\n\nreturn {\n  customer_name: customerName,\n  customer_phone: customerPhone,\n  inquiry_text: conversationText,\n  source: 'WhatsApp',\n  status: 'New',\n  metadata: {\n    intent: intent,\n    detected_brand: detectedBrand,\n    budget: budget,\n    customer_message: customerMessage,\n    bot_reply: botReply,\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "prepare-inquiry-data",
+      "name": "Prepare Inquiry Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://mobilehub-sand.vercel.app/api/inquiries",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"customer_name\": \"{{ $json.customer_name }}\",\n  \"customer_phone\": \"{{ $json.customer_phone }}\",\n  \"inquiry_text\": {{ JSON.stringify($json.inquiry_text) }},\n  \"source\": \"{{ $json.source }}\",\n  \"status\": \"{{ $json.status }}\"\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "save-to-inquiries",
+      "name": "Save to Inquiries",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1664,
+        288
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "WhatsApp Message Received": {
+      "main": [
+        [
+          {
+            "node": "Filter Text Messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Text Messages": {
+      "main": [
+        [
+          {
+            "node": "Extract Message Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Message Details": {
+      "main": [
+        [
+          {
+            "node": "Is Greeting?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Greeting?": {
+      "main": [
+        [
+          {
+            "node": "Welcome Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Search Inventory API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Welcome Message": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Inventory API": {
+      "main": [
+        [
+          {
+            "node": "Add Session ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Session ID": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send WhatsApp Reply": {
+      "main": [
+        [
+          {
+            "node": "Prepare Inquiry Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Inquiry Data": {
+      "main": [
+        [
+          {
+            "node": "Save to Inquiries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "a70b604f-c592-4d61-9e5f-9a606800e28a",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "01d6eed826be576ee05a44a9d1506d7304be6ddda1677c4b56ca08ddf9143893"
+  },
+  "id": "T9c4iAUpVsUrFvLa",
+  "tags": []
+}

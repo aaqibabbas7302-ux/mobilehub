@@ -1,29 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 
-// Mock phone data - replace with Supabase
-const phones: Record<string, {
-  id: string;
-  brand: string;
-  model_name: string;
-  variant: string;
-  color: string;
-  condition_grade: string;
-  battery_health_percent: number;
-  selling_price_paise: number;
-  original_mrp_paise: number;
-  warranty_type: string;
-  status: string;
-  screen_condition: string;
-  body_condition: string;
-  imei_verified: boolean;
-  accessories_included: string[];
-}> = {
-  "1": { id: "1", brand: "Apple", model_name: "iPhone 13", variant: "128GB", color: "Midnight", condition_grade: "A+", battery_health_percent: 92, selling_price_paise: 5299900, original_mrp_paise: 7990000, warranty_type: "60 Days", status: "Available", screen_condition: "Perfect", body_condition: "Excellent", imei_verified: true, accessories_included: ["Charger", "Box"] },
-  "2": { id: "2", brand: "Samsung", model_name: "Galaxy S23", variant: "8GB/256GB", color: "Phantom Black", condition_grade: "A", battery_health_percent: 88, selling_price_paise: 4899900, original_mrp_paise: 7499900, warranty_type: "30 Days", status: "Available", screen_condition: "Good", body_condition: "Good", imei_verified: true, accessories_included: ["Charger"] },
-};
-
-function formatPrice(paise: number): string {
-  const rupees = paise / 100;
+function formatPrice(rupees: number): string {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
@@ -31,49 +9,205 @@ function formatPrice(paise: number): string {
   }).format(rupees);
 }
 
+const conditionLabels: Record<string, string> = {
+  "A+": "Like New",
+  "A": "Excellent",
+  "B+": "Very Good",
+  "B": "Good",
+  "C": "Fair",
+  "D": "Acceptable",
+};
+
+// GET single phone
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
-  
-  const phone = phones[id];
+  try {
+    const { id } = await params;
+    const supabase = await createClient();
+    
+    const { data: phone, error } = await supabase
+      .from("phones")
+      .select("*")
+      .eq("id", id)
+      .single();
 
-  if (!phone) {
-    return NextResponse.json(
-      { success: false, error: "Phone not found" },
-      { status: 404 }
-    );
+    if (error) {
+      if (error.code === "PGRST116") {
+        return NextResponse.json({ success: false, error: "Phone not found" }, { status: 404 });
+      }
+      throw error;
+    }
+
+    // Convert prices from paise to rupees
+    const sellingPrice = phone.selling_price_paise / 100;
+    const originalPrice = phone.original_mrp_paise ? phone.original_mrp_paise / 100 : null;
+    const costPrice = phone.cost_price_paise / 100;
+    
+    // Calculate discount
+    const discount = originalPrice && originalPrice > sellingPrice
+      ? Math.round(((originalPrice - sellingPrice) / originalPrice) * 100)
+      : 0;
+
+    const condition = conditionLabels[phone.condition_grade] || phone.condition_grade;
+
+    const response = {
+      success: true,
+      data: {
+        id: phone.id,
+        brand: phone.brand,
+        model_name: phone.model_name,
+        model_number: phone.model_number,
+        variant: phone.variant,
+        color: phone.color,
+        condition_grade: phone.condition_grade,
+        condition: condition,
+        battery_health_percent: phone.battery_health_percent,
+        selling_price: sellingPrice,
+        selling_price_formatted: formatPrice(sellingPrice),
+        original_price: originalPrice,
+        original_price_formatted: originalPrice ? formatPrice(originalPrice) : null,
+        cost_price: costPrice,
+        discount: discount,
+        discount_formatted: `${discount}%`,
+        images: phone.images || [],
+        thumbnail_url: phone.thumbnail_url,
+        status: phone.status,
+        warranty_type: phone.warranty_type,
+        imei_1: phone.imei_1,
+        description: phone.description,
+        accessories_included: phone.accessories_included || [],
+        created_at: phone.created_at,
+        // WhatsApp-friendly detailed text
+        whatsappText: `📱 *${phone.brand} ${phone.model_name}*\n\n` +
+          `💾 Storage: ${phone.variant || 'N/A'}\n` +
+          `🎨 Color: ${phone.color || 'N/A'}\n` +
+          `⭐ Condition: ${condition}\n` +
+          `🔋 Battery: ${phone.battery_health_percent || 'N/A'}%\n` +
+          `📦 Accessories: ${(phone.accessories_included || []).join(', ') || 'Phone Only'}\n\n` +
+          `💰 Price: *${formatPrice(sellingPrice)}*\n` +
+          (originalPrice ? `🏷️ MRP: ${formatPrice(originalPrice)} (${discount}% OFF)\n` : '') +
+          `🛡️ Warranty: ${phone.warranty_type || 'Seller Warranty'}\n\n` +
+          `📍 Available at: Delhi NCR\n` +
+          `📞 WhatsApp: +91 99107 24940`,
+      },
+    };
+
+    return NextResponse.json(response);
+  } catch (error) {
+    console.error("Error fetching phone:", error);
+    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
   }
+}
 
-  // Calculate discount
-  const discount = phone.original_mrp_paise > phone.selling_price_paise
-    ? Math.round(((phone.original_mrp_paise - phone.selling_price_paise) / phone.original_mrp_paise) * 100)
-    : 0;
+// PUT - Update phone
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const supabase = await createClient();
+    const body = await request.json();
 
-  const response = {
-    success: true,
-    data: {
-      ...phone,
-      price: formatPrice(phone.selling_price_paise),
-      originalPrice: formatPrice(phone.original_mrp_paise),
-      discount: `${discount}%`,
-      // WhatsApp-friendly detailed text
-      whatsappText: `📱 *${phone.brand} ${phone.model_name}*\n\n` +
-        `💾 Storage: ${phone.variant}\n` +
-        `🎨 Color: ${phone.color}\n` +
-        `⭐ Condition: Grade ${phone.condition_grade}\n` +
-        `📱 Screen: ${phone.screen_condition}\n` +
-        `🔋 Battery: ${phone.battery_health_percent}%\n` +
-        `✅ IMEI Verified: ${phone.imei_verified ? 'Yes' : 'No'}\n` +
-        `📦 Accessories: ${phone.accessories_included.join(', ')}\n\n` +
-        `💰 Price: *${formatPrice(phone.selling_price_paise)}*\n` +
-        `🏷️ MRP: ${formatPrice(phone.original_mrp_paise)} (${discount}% OFF)\n` +
-        `🛡️ Warranty: ${phone.warranty_type}\n\n` +
-        `📍 Available at: Nehru Place, Delhi\n` +
-        `📞 Call: +91 98765 43210`,
-    },
-  };
+    const {
+      name,
+      brand,
+      model,
+      price,
+      originalPrice,
+      cost,
+      storage,
+      color,
+      condition,
+      imei,
+      batteryHealth,
+      description,
+      status,
+      images,
+    } = body;
 
-  return NextResponse.json(response);
+    // Validate required fields
+    if (!name || !brand || !price || !imei) {
+      return NextResponse.json(
+        { error: "Name, brand, price, and IMEI are required" },
+        { status: 400 }
+      );
+    }
+
+    // Convert prices to paise (1 INR = 100 paise)
+    const sellingPricePaise = Math.round(parseFloat(price) * 100);
+    const originalMrpPaise = originalPrice ? Math.round(parseFloat(originalPrice) * 100) : null;
+    const costPricePaise = cost ? Math.round(parseFloat(cost) * 100) : sellingPricePaise;
+
+    const phoneData = {
+      brand,
+      model_name: name,
+      model_number: model || null,
+      variant: storage || null,
+      color: color || null,
+      imei_1: imei,
+      condition_grade: condition || "B",
+      battery_health_percent: batteryHealth ? parseInt(batteryHealth) : null,
+      cost_price_paise: costPricePaise,
+      selling_price_paise: sellingPricePaise,
+      original_mrp_paise: originalMrpPaise,
+      images: images || [],
+      thumbnail_url: images?.[0] || null,
+      status: status || "Available",
+      description: description || null,
+    };
+
+    const { data, error } = await supabase
+      .from("phones")
+      .update(phoneData)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error updating phone:", error);
+      
+      if (error.code === "23505") {
+        return NextResponse.json(
+          { error: "A phone with this IMEI already exists" },
+          { status: 409 }
+        );
+      }
+      
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ phone: data, message: "Phone updated successfully" });
+  } catch (error) {
+    console.error("Error in PUT /api/phones/[id]:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+// DELETE phone
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const supabase = await createClient();
+    
+    const { error } = await supabase
+      .from("phones")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.error("Error deleting phone:", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ message: "Phone deleted successfully" });
+  } catch (error) {
+    console.error("Error in DELETE /api/phones/[id]:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 }

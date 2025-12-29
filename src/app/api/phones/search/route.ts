@@ -1,18 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-
-// Mock data - replace with Supabase queries
-const phones = [
-  { id: "1", brand: "Apple", model_name: "iPhone 13", variant: "128GB", color: "Midnight", condition_grade: "A+", battery_health_percent: 92, selling_price_paise: 5299900, original_mrp_paise: 7990000, warranty_type: "60 Days", status: "Available" },
-  { id: "2", brand: "Samsung", model_name: "Galaxy S23", variant: "8GB/256GB", color: "Phantom Black", condition_grade: "A", battery_health_percent: 88, selling_price_paise: 4899900, original_mrp_paise: 7499900, warranty_type: "30 Days", status: "Available" },
-  { id: "3", brand: "OnePlus", model_name: "11R 5G", variant: "8GB/128GB", color: "Sonic Black", condition_grade: "A+", battery_health_percent: 95, selling_price_paise: 3199900, original_mrp_paise: 3999900, warranty_type: "60 Days", status: "Available" },
-  { id: "4", brand: "Apple", model_name: "iPhone 12", variant: "64GB", color: "Blue", condition_grade: "B+", battery_health_percent: 84, selling_price_paise: 3499900, original_mrp_paise: 6590000, warranty_type: "30 Days", status: "Available" },
-  { id: "5", brand: "Xiaomi", model_name: "Redmi Note 12 Pro", variant: "8GB/128GB", color: "Glacier Blue", condition_grade: "A", battery_health_percent: 96, selling_price_paise: 1899900, original_mrp_paise: 2799900, warranty_type: "30 Days", status: "Available" },
-  { id: "6", brand: "Samsung", model_name: "Galaxy A54 5G", variant: "8GB/256GB", color: "Awesome Graphite", condition_grade: "A+", battery_health_percent: 98, selling_price_paise: 2799900, original_mrp_paise: 3899900, warranty_type: "60 Days", status: "Available" },
-  { id: "7", brand: "Apple", model_name: "iPhone 14 Pro", variant: "256GB", color: "Deep Purple", condition_grade: "A", battery_health_percent: 90, selling_price_paise: 8999900, original_mrp_paise: 12990000, warranty_type: "90 Days", status: "Available" },
-  { id: "8", brand: "OnePlus", model_name: "Nord CE 3", variant: "8GB/128GB", color: "Aqua Surge", condition_grade: "B+", battery_health_percent: 91, selling_price_paise: 2299900, original_mrp_paise: 2699900, warranty_type: "30 Days", status: "Available" },
-  { id: "9", brand: "Vivo", model_name: "V29 Pro", variant: "8GB/256GB", color: "Starry Purple", condition_grade: "A+", battery_health_percent: 99, selling_price_paise: 3699900, original_mrp_paise: 4699900, warranty_type: "60 Days", status: "Available" },
-  { id: "10", brand: "Realme", model_name: "GT Neo 5", variant: "8GB/128GB", color: "Black", condition_grade: "A", battery_health_percent: 94, selling_price_paise: 2599900, original_mrp_paise: 3499900, warranty_type: "30 Days", status: "Reserved" },
-];
+import { createClient } from "@/lib/supabase/server";
 
 function formatPrice(paise: number): string {
   const rupees = paise / 100;
@@ -25,67 +12,87 @@ function formatPrice(paise: number): string {
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
+  const supabase = await createClient();
   
   // Get filter parameters
   const query = searchParams.get("query")?.toLowerCase() || "";
-  const brand = searchParams.get("brand")?.toLowerCase();
+  const brand = searchParams.get("brand");
   const minPrice = searchParams.get("minPrice") ? parseInt(searchParams.get("minPrice")!) * 100 : null;
   const maxPrice = searchParams.get("maxPrice") ? parseInt(searchParams.get("maxPrice")!) * 100 : null;
   const status = searchParams.get("status") || "Available";
   const limit = searchParams.get("limit") ? parseInt(searchParams.get("limit")!) : 10;
 
-  // Filter phones
-  let results = phones.filter((phone) => {
-    // Search query matches brand or model
-    const matchesQuery = !query || 
-      phone.brand.toLowerCase().includes(query) ||
-      phone.model_name.toLowerCase().includes(query) ||
-      `${phone.brand} ${phone.model_name}`.toLowerCase().includes(query);
+  // Build Supabase query
+  let dbQuery = supabase
+    .from("phones")
+    .select("*")
+    .order("selling_price_paise", { ascending: true });
 
-    // Brand filter
-    const matchesBrand = !brand || phone.brand.toLowerCase() === brand;
+  // Apply status filter
+  if (status && status !== "all") {
+    dbQuery = dbQuery.eq("status", status);
+  }
 
-    // Price range
-    const matchesMinPrice = !minPrice || phone.selling_price_paise >= minPrice;
-    const matchesMaxPrice = !maxPrice || phone.selling_price_paise <= maxPrice;
+  // Apply brand filter
+  if (brand) {
+    dbQuery = dbQuery.ilike("brand", `%${brand}%`);
+  }
 
-    // Status
-    const matchesStatus = !status || status === "all" || phone.status === status;
+  // Apply search query
+  if (query) {
+    dbQuery = dbQuery.or(`model_name.ilike.%${query}%,brand.ilike.%${query}%`);
+  }
 
-    return matchesQuery && matchesBrand && matchesMinPrice && matchesMaxPrice && matchesStatus;
-  });
+  // Apply price range
+  if (minPrice) {
+    dbQuery = dbQuery.gte("selling_price_paise", minPrice);
+  }
+  if (maxPrice) {
+    dbQuery = dbQuery.lte("selling_price_paise", maxPrice);
+  }
 
-  // Sort by price (lowest first)
-  results = results.sort((a, b) => a.selling_price_paise - b.selling_price_paise);
+  // Apply limit
+  dbQuery = dbQuery.limit(limit);
 
-  // Limit results
-  results = results.slice(0, limit);
+  const { data: phones, error } = await dbQuery;
+
+  if (error) {
+    console.error("Search error:", error);
+    return NextResponse.json({ success: false, error: "Search failed" }, { status: 500 });
+  }
+
+  // Get total available count
+  const { count: totalAvailable } = await supabase
+    .from("phones")
+    .select("*", { count: "exact", head: true })
+    .eq("status", "Available");
 
   // Format response for n8n/WhatsApp
-  const formattedResults = results.map(phone => ({
+  const formattedResults = (phones || []).map(phone => ({
     id: phone.id,
     name: `${phone.brand} ${phone.model_name}`,
-    variant: phone.variant,
-    color: phone.color,
-    condition: phone.condition_grade,
-    battery: `${phone.battery_health_percent}%`,
+    variant: phone.storage || phone.ram || "",
+    color: phone.color || "",
+    condition: phone.condition || "",
+    battery: phone.battery_health ? `${phone.battery_health}%` : "N/A",
     price: formatPrice(phone.selling_price_paise),
     priceRaw: phone.selling_price_paise / 100,
-    warranty: phone.warranty_type,
+    warranty: phone.warranty_months ? `${phone.warranty_months} Days` : "No Warranty",
     status: phone.status,
+    images: phone.images || [],
     // WhatsApp-friendly text format
     whatsappText: `📱 *${phone.brand} ${phone.model_name}*\n` +
-      `💾 ${phone.variant} | 🎨 ${phone.color}\n` +
-      `⭐ Grade ${phone.condition_grade} | 🔋 ${phone.battery_health_percent}%\n` +
+      `💾 ${phone.storage || "N/A"} | 🎨 ${phone.color || "N/A"}\n` +
+      `⭐ ${phone.condition || "Good"} | 🔋 ${phone.battery_health || "N/A"}%\n` +
       `💰 *${formatPrice(phone.selling_price_paise)}*\n` +
-      `📦 ${phone.warranty_type} Warranty\n` +
+      `📦 ${phone.warranty_months ? phone.warranty_months + " Days Warranty" : "No Warranty"}\n` +
       `🔗 View: ${process.env.NEXT_PUBLIC_SITE_URL || 'https://mobilehub.delhi'}/phones/${phone.id}`,
   }));
 
   return NextResponse.json({
     success: true,
     count: formattedResults.length,
-    totalAvailable: phones.filter(p => p.status === "Available").length,
+    totalAvailable: totalAvailable || 0,
     data: formattedResults,
     // Summary for AI agent
     summary: formattedResults.length > 0 
@@ -98,81 +105,137 @@ export async function POST(request: NextRequest) {
   // Handle POST requests for more complex queries from n8n
   try {
     const body = await request.json();
-    const { query, brand, minBudget, maxBudget, preferredCondition } = body;
+    const { query, brand, minBudget, maxBudget, limit = 5 } = body;
 
-    let results = phones.filter(phone => phone.status === "Available");
+    const supabase = await createClient();
 
-    // Apply filters
-    if (query) {
-      const q = query.toLowerCase();
-      results = results.filter(p => 
-        p.brand.toLowerCase().includes(q) || 
-        p.model_name.toLowerCase().includes(q)
-      );
-    }
+    // Build Supabase query
+    let dbQuery = supabase
+      .from("phones")
+      .select("*")
+      .eq("status", "Available")
+      .order("selling_price_paise", { ascending: true });
 
+    // Apply brand filter
     if (brand) {
-      results = results.filter(p => p.brand.toLowerCase() === brand.toLowerCase());
+      dbQuery = dbQuery.ilike("brand", `%${brand}%`);
     }
 
+    // Apply search query
+    if (query) {
+      dbQuery = dbQuery.or(`model_name.ilike.%${query}%,brand.ilike.%${query}%,description.ilike.%${query}%`);
+    }
+
+    // Apply price range
     if (minBudget) {
-      results = results.filter(p => p.selling_price_paise >= minBudget * 100);
+      dbQuery = dbQuery.gte("selling_price_paise", minBudget * 100);
     }
-
     if (maxBudget) {
-      results = results.filter(p => p.selling_price_paise <= maxBudget * 100);
+      dbQuery = dbQuery.lte("selling_price_paise", maxBudget * 100);
     }
 
-    if (preferredCondition) {
-      const conditions = Array.isArray(preferredCondition) ? preferredCondition : [preferredCondition];
-      results = results.filter(p => conditions.includes(p.condition_grade));
+    // Apply limit
+    dbQuery = dbQuery.limit(limit);
+
+    const { data: phones, error } = await dbQuery;
+
+    if (error) {
+      console.error("Search error:", error);
+      return NextResponse.json({ success: false, error: "Search failed" }, { status: 500 });
     }
 
-    // Sort by price
-    results = results.sort((a, b) => a.selling_price_paise - b.selling_price_paise);
+    const results = phones || [];
 
     // Get suggestions if no exact match
-    let suggestions: typeof phones = [];
+    let suggestions: typeof results = [];
     if (results.length === 0) {
       // Suggest similar phones by brand or price range
       if (brand) {
-        suggestions = phones
-          .filter(p => p.status === "Available" && p.brand.toLowerCase() === brand.toLowerCase())
-          .slice(0, 3);
+        const { data: brandSuggestions } = await supabase
+          .from("phones")
+          .select("*")
+          .eq("status", "Available")
+          .ilike("brand", `%${brand}%`)
+          .order("selling_price_paise", { ascending: true })
+          .limit(3);
+        suggestions = brandSuggestions || [];
       }
       
       if (suggestions.length === 0 && maxBudget) {
-        suggestions = phones
-          .filter(p => p.status === "Available" && p.selling_price_paise <= maxBudget * 100 * 1.2)
-          .sort((a, b) => a.selling_price_paise - b.selling_price_paise)
-          .slice(0, 3);
+        const { data: priceSuggestions } = await supabase
+          .from("phones")
+          .select("*")
+          .eq("status", "Available")
+          .lte("selling_price_paise", maxBudget * 100 * 1.2)
+          .order("selling_price_paise", { ascending: true })
+          .limit(3);
+        suggestions = priceSuggestions || [];
+      }
+
+      // If still no suggestions, get any available phones
+      if (suggestions.length === 0) {
+        const { data: anySuggestions } = await supabase
+          .from("phones")
+          .select("*")
+          .eq("status", "Available")
+          .order("created_at", { ascending: false })
+          .limit(3);
+        suggestions = anySuggestions || [];
       }
     }
 
-    const formatPhone = (phone: typeof phones[0]) => ({
+    const formatPhone = (phone: any) => ({
       id: phone.id,
       name: `${phone.brand} ${phone.model_name}`,
-      variant: phone.variant,
+      brand: phone.brand,
+      model: phone.model_name,
+      variant: phone.storage || "",
+      color: phone.color || "",
       price: formatPrice(phone.selling_price_paise),
       priceRaw: phone.selling_price_paise / 100,
-      condition: phone.condition_grade,
-      battery: phone.battery_health_percent,
-      warranty: phone.warranty_type,
+      condition: phone.condition || "Good",
+      battery: phone.battery_health || null,
+      warranty: phone.warranty_months ? `${phone.warranty_months} Days` : null,
+      images: phone.images || [],
+      whatsapp_link: `https://wa.me/919910724940?text=${encodeURIComponent(`Hi! I'm interested in ${phone.brand} ${phone.model_name} (${formatPrice(phone.selling_price_paise)})`)}`,
     });
+
+    // Generate text response for n8n AI agent
+    let textResponse = "";
+    if (results.length > 0) {
+      textResponse = `Found ${results.length} phone(s):\n\n`;
+      results.forEach((phone, i) => {
+        textResponse += `${i + 1}. *${phone.brand} ${phone.model_name}*\n`;
+        textResponse += `   💰 ${formatPrice(phone.selling_price_paise)}\n`;
+        if (phone.storage) textResponse += `   💾 ${phone.storage}\n`;
+        if (phone.condition) textResponse += `   ✨ ${phone.condition}\n`;
+        textResponse += "\n";
+      });
+      textResponse += "Reply with the number to know more or buy!";
+    } else if (suggestions.length > 0) {
+      textResponse = "We don't have an exact match, but here are similar options:\n\n";
+      suggestions.forEach((phone, i) => {
+        textResponse += `${i + 1}. *${phone.brand} ${phone.model_name}* - ${formatPrice(phone.selling_price_paise)}\n`;
+      });
+    } else {
+      textResponse = "Sorry, no phones available matching your criteria. Please try a different search or contact us for help!";
+    }
 
     return NextResponse.json({
       success: true,
       found: results.length > 0,
       count: results.length,
-      data: results.slice(0, 5).map(formatPhone),
+      data: results.map(formatPhone),
       suggestions: suggestions.map(formatPhone),
+      text: textResponse,
       message: results.length > 0
         ? `Great news! We have ${results.length} phone(s) available that match your requirements.`
         : suggestions.length > 0
         ? `We don't have an exact match, but here are some similar options you might like:`
         : `Sorry, we currently don't have phones matching your requirements. Please check back later or tell us your preferences and we'll notify you when available!`,
     });
-  } catch {
+  } catch (err) {
+    console.error("Search POST error:", err);
     return NextResponse.json(
       { success: false, error: "Invalid request body" },
       { status: 400 }

@@ -51,8 +51,10 @@ CREATE TABLE customers (
   address TEXT,
   city VARCHAR(50) DEFAULT 'Delhi',
   pincode VARCHAR(10),
+  status VARCHAR(20) DEFAULT 'active', -- active, vip, inactive
   total_purchases INTEGER DEFAULT 0,
   total_spent_paise BIGINT DEFAULT 0,
+  total_orders INTEGER DEFAULT 0,
   notes TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -226,6 +228,9 @@ CREATE TABLE inquiries (
   
   inquiry_text TEXT,
   status VARCHAR(30) DEFAULT 'New', -- New, Contacted, Interested, Converted, Lost
+  
+  -- Conversation tracking for WhatsApp chats
+  metadata JSONB DEFAULT '{}', -- Stores intent, brand, budget, bot_reply, etc.
   
   assigned_to VARCHAR(100),
   notes TEXT,

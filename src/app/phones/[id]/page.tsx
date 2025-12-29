@@ -1,373 +1,430 @@
+"use client";
+
 import Link from "next/link";
-import { Phone, MapPin, MessageCircle, ArrowLeft, Shield, Battery, Camera, Fingerprint, Volume2, Wifi, Bluetooth, Check, X, Clock, Package } from "lucide-react";
+import { useParams } from "next/navigation";
+import { useState, useEffect } from "react";
+import { 
+  Phone, 
+  MessageCircle, 
+  ArrowLeft,
+  Shield,
+  Battery,
+  HardDrive,
+  Palette,
+  Check,
+  ChevronRight,
+  Share2,
+  Heart,
+  Award,
+  Clock,
+  Truck,
+  RefreshCw,
+  Loader2
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { formatPrice, calculateDiscount, getWhatsAppLink, generateInquiryMessage, CONDITION_DESCRIPTIONS } from "@/lib/utils";
+import { formatPrice, getWhatsAppLink, getConditionColor } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 
-// Phone type definition
+const WHATSAPP_NUMBER = "919910724940";
+
 interface PhoneDetail {
   id: string;
   brand: string;
   model_name: string;
-  variant: string;
-  color: string;
+  model_number: string | null;
+  variant: string | null;
+  color: string | null;
   condition_grade: string;
-  battery_health_percent: number;
+  battery_health_percent: number | null;
   selling_price_paise: number;
-  original_mrp_paise: number;
-  warranty_type: string;
+  cost_price_paise: number;
+  original_mrp_paise: number | null;
+  images: string[] | null;
   status: string;
-  images: string[];
-  imei_verified: boolean;
-  screen_condition: string;
-  body_condition: string;
-  face_id_working: boolean;
-  fingerprint_working: boolean;
-  buttons_working: boolean;
-  speakers_working: boolean;
-  microphone_working: boolean;
-  cameras_working: string;
-  wifi_working: boolean;
-  bluetooth_working: boolean;
-  charging_port_condition: string;
-  accessories_included: string[];
-  location: string;
+  warranty_type: string | null;
+  imei_1: string;
+  accessories_included: string[] | null;
+  description: string | null;
+  created_at: string;
 }
 
-// Mock data - in production, fetch from Supabase
-const phonesData: Record<string, PhoneDetail> = {
-  "1": {
-    id: "1", brand: "Apple", model_name: "iPhone 13", variant: "128GB", color: "Midnight",
-    condition_grade: "A+", battery_health_percent: 92, selling_price_paise: 5299900,
-    original_mrp_paise: 7990000, warranty_type: "60 Days", status: "Available",
-    images: [
-      "https://placehold.co/600x600/1a1a1a/white?text=iPhone+13",
-      "https://placehold.co/600x600/2a2a2a/white?text=Back+View",
-      "https://placehold.co/600x600/3a3a3a/white?text=Side+View",
-    ],
-    imei_verified: true,
-    screen_condition: "Perfect",
-    body_condition: "Excellent",
-    face_id_working: true,
-    fingerprint_working: false,
-    buttons_working: true,
-    speakers_working: true,
-    microphone_working: true,
-    cameras_working: "Both",
-    wifi_working: true,
-    bluetooth_working: true,
-    charging_port_condition: "Good",
-    accessories_included: ["Charger", "Box"],
-    location: "Store",
-  },
+const conditionLabels: Record<string, string> = {
+  "A+": "Like New",
+  "A": "Excellent",
+  "B+": "Very Good",
+  "B": "Good",
+  "C": "Fair",
+  "D": "Acceptable",
 };
 
-const getPhone = (id: string): PhoneDetail => {
-  return phonesData[id] || phonesData["1"];
-};
+const gradients = [
+  "from-violet-600 to-purple-600",
+  "from-cyan-500 to-blue-600",
+  "from-red-500 to-orange-500",
+  "from-emerald-500 to-teal-500",
+  "from-pink-500 to-rose-500",
+];
 
-const WHATSAPP_NUMBER = "919876543210";
+export default function PhoneDetailPage() {
+  const params = useParams();
+  const [phone, setPhone] = useState<PhoneDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedImage, setSelectedImage] = useState(0);
+  const [isLiked, setIsLiked] = useState(false);
 
-export default async function PhoneDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const phone = getPhone(id);
-  const discount = calculateDiscount(phone.original_mrp_paise, phone.selling_price_paise);
-  const inquiryMessage = generateInquiryMessage(phone);
+  useEffect(() => {
+    if (params.id) {
+      fetchPhone(params.id as string);
+    }
+  }, [params.id]);
+
+  const fetchPhone = async (id: string) => {
+    try {
+      setLoading(true);
+      const supabase = createClient();
+      
+      const { data, error } = await supabase
+        .from("phones")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      if (error) throw error;
+      setPhone(data);
+    } catch (err) {
+      console.error("Error fetching phone:", err);
+      setError("Phone not found");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#030712] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+      </div>
+    );
+  }
+
+  if (error || !phone) {
+    return (
+      <div className="min-h-screen bg-[#030712] flex flex-col items-center justify-center gap-4">
+        <h1 className="text-2xl font-bold">Phone not found</h1>
+        <Link href="/phones">
+          <Button className="btn-futuristic rounded-xl">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Phones
+          </Button>
+        </Link>
+      </div>
+    );
+  }
+
+  const price = phone.selling_price_paise / 100;
+  const originalPrice = phone.original_mrp_paise ? phone.original_mrp_paise / 100 : null;
+  const discount = originalPrice ? Math.round((1 - price / originalPrice) * 100) : 0;
+  const condition = conditionLabels[phone.condition_grade] || phone.condition_grade;
+  const gradient = gradients[phone.brand.length % gradients.length];
+  const images = phone.images || [];
+
+  const whatsappMessage = `Hi! I'm interested in buying the ${phone.model_name} (${phone.variant || ""}) for ${formatPrice(price)}. Is it available?`;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#030712]">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-white border-b shadow-sm">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between h-16">
+      <header className="border-b border-white/10 sticky top-0 z-50 bg-[#030712]/80 backdrop-blur-xl">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Link href="/phones">
+              <Button variant="ghost" size="icon" className="rounded-full hover:bg-white/10">
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+            </Link>
             <Link href="/" className="flex items-center gap-2">
-              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-blue-700">
+              <div className="bg-gradient-to-br from-orange-500 to-red-600 p-2 rounded-xl">
                 <Phone className="w-5 h-5 text-white" />
               </div>
-              <div>
-                <span className="text-xl font-bold text-gray-900">MobileHub</span>
-                <span className="text-xs text-gray-500 block -mt-1">Delhi</span>
-              </div>
+              <span className="text-xl font-bold hidden sm:block">
+                Mobile<span className="text-orange-500">Hub</span>
+              </span>
             </Link>
-            
-            <a href={getWhatsAppLink(WHATSAPP_NUMBER)} target="_blank" rel="noopener noreferrer">
-              <Button className="bg-green-600 hover:bg-green-700">
-                <MessageCircle className="w-4 h-4 mr-2" />
-                <span className="hidden sm:inline">WhatsApp</span>
-              </Button>
-            </a>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" className="rounded-full hover:bg-white/10" onClick={() => setIsLiked(!isLiked)}>
+              <Heart className={`w-5 h-5 ${isLiked ? 'fill-red-500 text-red-500' : ''}`} />
+            </Button>
+            <Button variant="ghost" size="icon" className="rounded-full hover:bg-white/10">
+              <Share2 className="w-5 h-5" />
+            </Button>
           </div>
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-6">
-        {/* Breadcrumb */}
-        <div className="flex items-center gap-2 mb-6">
-          <Link href="/phones" className="text-blue-600 hover:underline flex items-center gap-1">
-            <ArrowLeft className="w-4 h-4" />
-            Back to Phones
-          </Link>
+      {/* Breadcrumb */}
+      <div className="container mx-auto px-4 py-4">
+        <div className="flex items-center gap-2 text-sm text-gray-500">
+          <Link href="/" className="hover:text-white transition-colors">Home</Link>
+          <ChevronRight className="w-4 h-4" />
+          <Link href="/phones" className="hover:text-white transition-colors">Phones</Link>
+          <ChevronRight className="w-4 h-4" />
+          <span className="text-orange-500">{phone.model_name}</span>
         </div>
+      </div>
 
-        <div className="grid gap-8 lg:grid-cols-2">
-          {/* Image Gallery */}
-          <div className="space-y-4">
-            <div className="aspect-square bg-white rounded-xl border overflow-hidden">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={phone.images[0]}
-                alt={`${phone.brand} ${phone.model_name}`}
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <div className="flex gap-2 overflow-x-auto pb-2">
-              {phone.images.map((img: string, i: number) => (
-                <div key={i} className="w-20 h-20 rounded-lg border-2 border-gray-200 overflow-hidden flex-shrink-0 cursor-pointer hover:border-blue-500">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={img} alt="" className="w-full h-full object-cover" />
+      {/* Main Content */}
+      <main className="container mx-auto px-4 py-8">
+        <div className="grid lg:grid-cols-2 gap-12">
+          {/* Left: Product Images */}
+          <div className="space-y-6">
+            {/* Main Image */}
+            <div className={`relative bg-gradient-to-br ${gradient} rounded-3xl overflow-hidden aspect-square`}>
+              {images.length > 0 ? (
+                <img 
+                  src={images[selectedImage]} 
+                  alt={phone.model_name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <span className="text-[200px]">📱</span>
                 </div>
-              ))}
+              )}
+              
+              {/* Badges */}
+              <div className="absolute top-6 left-6 flex flex-col gap-2">
+                <Badge className={`${getConditionColor(condition)} border-0 text-sm px-3 py-1`}>
+                  {condition}
+                </Badge>
+                {discount > 0 && (
+                  <Badge className="bg-green-500/90 text-white border-0 text-sm px-3 py-1">
+                    -{discount}% OFF
+                  </Badge>
+                )}
+              </div>
+
+              {/* Battery */}
+              {phone.battery_health_percent && (
+                <div className="absolute bottom-6 left-6 glass rounded-full px-4 py-2 flex items-center gap-2">
+                  <Battery className="w-4 h-4 text-green-500" />
+                  <span className="font-semibold">{phone.battery_health_percent}%</span>
+                </div>
+              )}
             </div>
+
+            {/* Thumbnail Gallery */}
+            {images.length > 1 && (
+              <div className="grid grid-cols-4 gap-4">
+                {images.slice(0, 4).map((img, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setSelectedImage(i)}
+                    className={`aspect-square rounded-2xl overflow-hidden transition-all ${
+                      selectedImage === i ? 'ring-2 ring-orange-500' : 'opacity-60 hover:opacity-80'
+                    }`}
+                  >
+                    <img src={img} alt="" className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Product Info */}
-          <div className="space-y-6">
-            {/* Title & Badges */}
+          {/* Right: Product Info */}
+          <div className="space-y-8">
+            {/* Title & Price */}
             <div>
-              <div className="flex items-center gap-2 mb-2">
-                <Badge className={phone.condition_grade === 'A+' ? 'bg-emerald-500' : phone.condition_grade === 'A' ? 'bg-green-500' : 'bg-yellow-500'}>
-                  Grade {phone.condition_grade}
-                </Badge>
-                {phone.imei_verified && (
-                  <Badge variant="outline" className="text-green-700 border-green-200 bg-green-50">
-                    <Shield className="w-3 h-3 mr-1" /> IMEI Verified
+              <div className="flex items-center gap-3 mb-2">
+                <Badge className="bg-white/10 text-white border-0">{phone.brand}</Badge>
+                {phone.status === "Available" && (
+                  <Badge className="bg-green-500/20 text-green-500 border-0">
+                    <Check className="w-3 h-3 mr-1" />
+                    In Stock
                   </Badge>
                 )}
               </div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-                {phone.brand} {phone.model_name}
-              </h1>
-              <p className="text-gray-600 mt-1">{phone.variant} • {phone.color}</p>
-            </div>
-
-            {/* Price */}
-            <div className="bg-white rounded-xl p-6 border">
-              <div className="flex items-end gap-4">
-                <div>
-                  <p className="text-3xl font-bold text-gray-900">
-                    {formatPrice(phone.selling_price_paise)}
-                  </p>
-                  {phone.original_mrp_paise && (
-                    <p className="text-lg text-gray-400 line-through">
-                      MRP {formatPrice(phone.original_mrp_paise)}
-                    </p>
-                  )}
-                </div>
-                {discount > 0 && (
-                  <Badge className="bg-red-500 text-white text-lg px-3 py-1">
-                    {discount}% OFF
-                  </Badge>
+              <h1 className="text-4xl md:text-5xl font-bold mb-4">{phone.model_name}</h1>
+              <p className="text-gray-400 text-lg">{phone.variant} {phone.color ? `• ${phone.color}` : ""}</p>
+              
+              <div className="flex items-baseline gap-4 mt-6">
+                <span className="text-5xl font-bold text-orange-500">{formatPrice(price)}</span>
+                {originalPrice && (
+                  <span className="text-2xl text-gray-500 line-through">{formatPrice(originalPrice)}</span>
                 )}
               </div>
-              <p className="text-sm text-gray-500 mt-2">Inclusive of all taxes</p>
+              {originalPrice && (
+                <p className="text-green-400 text-sm mt-2">
+                  You save {formatPrice(originalPrice - price)} ({discount}% off)
+                </p>
+              )}
             </div>
 
-            {/* Quick Info */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white rounded-lg p-4 border flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                  <Battery className="w-5 h-5 text-green-600" />
+            {/* Specifications */}
+            <div className="glass-card rounded-2xl p-6 space-y-4">
+              <h3 className="font-semibold text-lg">Specifications</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                    <HardDrive className="w-5 h-5 text-blue-500" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Storage</p>
+                    <p className="font-medium">{phone.variant || "N/A"}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm text-gray-500">Battery Health</p>
-                  <p className="font-semibold text-gray-900">{phone.battery_health_percent}%</p>
+                {phone.battery_health_percent && (
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center">
+                      <Battery className="w-5 h-5 text-green-500" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Battery Health</p>
+                      <p className="font-medium">{phone.battery_health_percent}%</p>
+                    </div>
+                  </div>
+                )}
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
+                    <Palette className="w-5 h-5 text-purple-500" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Color</p>
+                    <p className="font-medium">{phone.color || "N/A"}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-orange-500/20 flex items-center justify-center">
+                    <Award className="w-5 h-5 text-orange-500" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Condition</p>
+                    <p className="font-medium">{condition}</p>
+                  </div>
                 </div>
               </div>
-              <div className="bg-white rounded-lg p-4 border flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                  <Package className="w-5 h-5 text-blue-600" />
+            </div>
+
+            {/* Trust Badges */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="glass-card rounded-xl p-4 text-center">
+                <Shield className="w-6 h-6 mx-auto text-green-500 mb-2" />
+                <p className="text-xs text-gray-400">{phone.warranty_type || "Seller Warranty"}</p>
+              </div>
+              <div className="glass-card rounded-xl p-4 text-center">
+                <RefreshCw className="w-6 h-6 mx-auto text-blue-500 mb-2" />
+                <p className="text-xs text-gray-400">7 Day Returns</p>
+              </div>
+              <div className="glass-card rounded-xl p-4 text-center">
+                <Truck className="w-6 h-6 mx-auto text-orange-500 mb-2" />
+                <p className="text-xs text-gray-400">Delhi NCR Delivery</p>
+              </div>
+            </div>
+
+            {/* Included Accessories */}
+            {phone.accessories_included && phone.accessories_included.length > 0 && (
+              <div className="glass-card rounded-2xl p-6">
+                <h3 className="font-semibold text-lg mb-4">What&apos;s Included</h3>
+                <div className="flex flex-wrap gap-2">
+                  {phone.accessories_included.map((item, i) => (
+                    <Badge key={i} variant="outline" className="border-gray-700">
+                      <Check className="w-3 h-3 mr-1 text-green-500" />
+                      {item}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Description */}
+            {phone.description && (
+              <div className="glass-card rounded-2xl p-6">
+                <h3 className="font-semibold text-lg mb-4">Description</h3>
+                <p className="text-gray-400 whitespace-pre-wrap">{phone.description}</p>
+              </div>
+            )}
+
+            {/* Additional Details */}
+            <div className="glass-card rounded-2xl p-6">
+              <h3 className="font-semibold text-lg mb-4">Device Details</h3>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-gray-500">Brand</p>
+                  <p className="font-medium">{phone.brand}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Warranty</p>
-                  <p className="font-semibold text-gray-900">{phone.warranty_type}</p>
+                  <p className="text-gray-500">Model</p>
+                  <p className="font-medium">{phone.model_name}</p>
+                </div>
+                {phone.model_number && (
+                  <div>
+                    <p className="text-gray-500">Model Number</p>
+                    <p className="font-medium">{phone.model_number}</p>
+                  </div>
+                )}
+                {phone.variant && (
+                  <div>
+                    <p className="text-gray-500">Storage</p>
+                    <p className="font-medium">{phone.variant}</p>
+                  </div>
+                )}
+                {phone.color && (
+                  <div>
+                    <p className="text-gray-500">Color</p>
+                    <p className="font-medium">{phone.color}</p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-gray-500">Condition</p>
+                  <p className="font-medium">{condition}</p>
+                </div>
+                {phone.battery_health_percent && (
+                  <div>
+                    <p className="text-gray-500">Battery Health</p>
+                    <p className="font-medium text-green-500">{phone.battery_health_percent}%</p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-gray-500">Warranty</p>
+                  <p className="font-medium">{phone.warranty_type || "Seller Warranty"}</p>
                 </div>
               </div>
             </div>
 
             {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              <a href={getWhatsAppLink(WHATSAPP_NUMBER, inquiryMessage)} target="_blank" rel="noopener noreferrer" className="flex-1">
-                <Button size="lg" className="w-full bg-green-600 hover:bg-green-700">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <a href={getWhatsAppLink(WHATSAPP_NUMBER, whatsappMessage)} className="flex-1">
+                <Button className="w-full bg-green-600 hover:bg-green-700 text-white py-6 rounded-xl text-lg">
                   <MessageCircle className="w-5 h-5 mr-2" />
-                  Enquire on WhatsApp
+                  Buy via WhatsApp
                 </Button>
               </a>
-              <a href={`tel:+${WHATSAPP_NUMBER}`} className="flex-1">
-                <Button size="lg" variant="outline" className="w-full">
+              <a href={`tel:+91${WHATSAPP_NUMBER.slice(2)}`} className="flex-1">
+                <Button variant="outline" className="w-full border-gray-800 py-6 rounded-xl text-lg">
                   <Phone className="w-5 h-5 mr-2" />
                   Call Now
                 </Button>
               </a>
             </div>
-
-            {/* Trust Badges */}
-            <div className="flex flex-wrap gap-4 text-sm text-gray-600">
-              <div className="flex items-center gap-1">
-                <Check className="w-4 h-4 text-green-500" />
-                7-Day Replacement
-              </div>
-              <div className="flex items-center gap-1">
-                <Check className="w-4 h-4 text-green-500" />
-                GST Invoice
-              </div>
-              <div className="flex items-center gap-1">
-                <Check className="w-4 h-4 text-green-500" />
-                Quality Tested
-              </div>
-            </div>
           </div>
         </div>
+      </main>
 
-        {/* Details Section */}
-        <div className="mt-12 grid gap-6 lg:grid-cols-2">
-          {/* Condition Details */}
-          <Card>
-            <CardContent className="pt-6">
-              <h3 className="font-semibold text-lg text-gray-900 mb-4">Condition Details</h3>
-              <div className="space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Condition Grade</span>
-                  <span className="font-medium">{phone.condition_grade} - {CONDITION_DESCRIPTIONS[phone.condition_grade]?.split(' - ')[0]}</span>
-                </div>
-                <Separator />
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Screen Condition</span>
-                  <span className="font-medium">{phone.screen_condition}</span>
-                </div>
-                <Separator />
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Body Condition</span>
-                  <span className="font-medium">{phone.body_condition}</span>
-                </div>
-                <Separator />
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Battery Health</span>
-                  <div className="flex items-center gap-2">
-                    <div className="w-20 h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full rounded-full ${phone.battery_health_percent >= 80 ? 'bg-green-500' : 'bg-yellow-500'}`}
-                        style={{ width: `${phone.battery_health_percent}%` }}
-                      />
-                    </div>
-                    <span className="font-medium">{phone.battery_health_percent}%</span>
-                  </div>
-                </div>
-                <Separator />
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Accessories</span>
-                  <span className="font-medium">{phone.accessories_included?.join(", ") || "None"}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Functional Tests */}
-          <Card>
-            <CardContent className="pt-6">
-              <h3 className="font-semibold text-lg text-gray-900 mb-4">Functional Tests</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50">
-                  <Camera className="w-5 h-5 text-gray-400" />
-                  <span className="text-sm">Cameras</span>
-                  <span className="ml-auto font-medium text-green-600">{phone.cameras_working}</span>
-                </div>
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50">
-                  <Fingerprint className="w-5 h-5 text-gray-400" />
-                  <span className="text-sm">Face ID</span>
-                  {phone.face_id_working ? (
-                    <Check className="ml-auto w-5 h-5 text-green-500" />
-                  ) : (
-                    <X className="ml-auto w-5 h-5 text-red-500" />
-                  )}
-                </div>
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50">
-                  <Volume2 className="w-5 h-5 text-gray-400" />
-                  <span className="text-sm">Speakers</span>
-                  {phone.speakers_working ? (
-                    <Check className="ml-auto w-5 h-5 text-green-500" />
-                  ) : (
-                    <X className="ml-auto w-5 h-5 text-red-500" />
-                  )}
-                </div>
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50">
-                  <Wifi className="w-5 h-5 text-gray-400" />
-                  <span className="text-sm">WiFi</span>
-                  {phone.wifi_working ? (
-                    <Check className="ml-auto w-5 h-5 text-green-500" />
-                  ) : (
-                    <X className="ml-auto w-5 h-5 text-red-500" />
-                  )}
-                </div>
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50">
-                  <Bluetooth className="w-5 h-5 text-gray-400" />
-                  <span className="text-sm">Bluetooth</span>
-                  {phone.bluetooth_working ? (
-                    <Check className="ml-auto w-5 h-5 text-green-500" />
-                  ) : (
-                    <X className="ml-auto w-5 h-5 text-red-500" />
-                  )}
-                </div>
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50">
-                  <Phone className="w-5 h-5 text-gray-400" />
-                  <span className="text-sm">Buttons</span>
-                  {phone.buttons_working ? (
-                    <Check className="ml-auto w-5 h-5 text-green-500" />
-                  ) : (
-                    <X className="ml-auto w-5 h-5 text-red-500" />
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Store Info */}
-        <Card className="mt-6">
-          <CardContent className="pt-6">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
-                  <MapPin className="w-6 h-6 text-blue-600" />
-                </div>
-                <div>
-                  <h4 className="font-semibold text-gray-900">Visit Our Store</h4>
-                  <p className="text-gray-600">Nehru Place, New Delhi - 110019</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4 text-sm text-gray-600">
-                <div className="flex items-center gap-1">
-                  <Clock className="w-4 h-4" />
-                  10 AM - 8 PM (Mon-Sat)
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Fixed Bottom Bar (Mobile) */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t p-4 lg:hidden z-40">
-        <div className="flex items-center justify-between gap-4">
+      {/* Mobile Sticky CTA */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 p-4 bg-[#030712]/90 backdrop-blur-xl border-t border-white/10">
+        <div className="flex items-center gap-4">
           <div>
-            <p className="text-xl font-bold text-gray-900">{formatPrice(phone.selling_price_paise)}</p>
-            <p className="text-sm text-gray-500">{phone.warranty_type} Warranty</p>
+            <p className="text-2xl font-bold text-orange-500">{formatPrice(price)}</p>
+            {originalPrice && (
+              <p className="text-sm text-gray-500 line-through">{formatPrice(originalPrice)}</p>
+            )}
           </div>
-          <a href={getWhatsAppLink(WHATSAPP_NUMBER, inquiryMessage)} target="_blank" rel="noopener noreferrer">
-            <Button className="bg-green-600 hover:bg-green-700">
+          <a href={getWhatsAppLink(WHATSAPP_NUMBER, whatsappMessage)} className="flex-1">
+            <Button className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl">
               <MessageCircle className="w-5 h-5 mr-2" />
-              Enquire Now
+              Buy Now
             </Button>
           </a>
         </div>

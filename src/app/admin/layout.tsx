@@ -2,30 +2,34 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
-import {
-  LayoutDashboard,
-  Smartphone,
-  Users,
-  ShoppingCart,
-  MessageSquare,
+import { 
+  LayoutDashboard, 
+  Smartphone, 
+  Users, 
+  ShoppingCart, 
+  MessageSquare, 
   Settings,
+  Phone,
+  LogOut,
+  Bell,
+  Search,
   Menu,
   X,
-  Phone,
+  ChevronRight,
+  Zap
 } from "lucide-react";
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { useState } from "react";
 
-const sidebarLinks = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/inventory", label: "Inventory", icon: Smartphone },
-  { href: "/admin/customers", label: "Customers", icon: Users },
-  { href: "/admin/orders", label: "Orders", icon: ShoppingCart },
-  { href: "/admin/inquiries", label: "Inquiries", icon: MessageSquare },
-  { href: "/admin/settings", label: "Settings", icon: Settings },
+const navigation = [
+  { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
+  { name: "Inventory", href: "/admin/inventory", icon: Smartphone },
+  { name: "Customers", href: "/admin/customers", icon: Users },
+  { name: "Orders", href: "/admin/orders", icon: ShoppingCart },
+  { name: "Inquiries", href: "/admin/inquiries", icon: MessageSquare, badge: 5 },
+  { name: "Settings", href: "/admin/settings", icon: Settings },
 ];
 
 export default function AdminLayout({
@@ -37,110 +41,145 @@ export default function AdminLayout({
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Mobile sidebar overlay */}
+    <div className="min-h-screen bg-[#030712] text-white">
+      {/* Background */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute inset-0 bg-grid-pattern opacity-20" />
+      </div>
+
+      {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* Sidebar */}
-      <aside
-        className={cn(
-          "fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 transform transition-transform duration-200 lg:translate-x-0",
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        )}
-      >
-        <div className="flex items-center justify-between h-16 px-4 border-b">
-          <Link href="/admin" className="flex items-center gap-2">
-            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-600">
-              <Phone className="w-5 h-5 text-white" />
+      <aside className={`fixed top-0 left-0 bottom-0 w-72 glass border-r border-gray-800 z-50 transform transition-transform duration-300 lg:translate-x-0 ${
+        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+      }`}>
+        <div className="flex flex-col h-full">
+          {/* Logo */}
+          <div className="p-6 border-b border-gray-800">
+            <div className="flex items-center justify-between">
+              <Link href="/admin" className="flex items-center gap-3">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-orange-500 blur-lg opacity-50" />
+                  <div className="relative bg-gradient-to-br from-orange-500 to-red-600 p-2.5 rounded-xl">
+                    <Phone className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+                <div>
+                  <span className="text-lg font-bold">MobileHub</span>
+                  <span className="block text-[10px] text-orange-500 uppercase tracking-wider">Admin Panel</span>
+                </div>
+              </Link>
+              <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-2 hover:bg-white/10 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
             </div>
-            <span className="text-lg font-bold text-gray-900">MobileHub</span>
-          </Link>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="lg:hidden"
-            onClick={() => setSidebarOpen(false)}
-          >
-            <X className="h-5 w-5" />
-          </Button>
-        </div>
+          </div>
 
-        <ScrollArea className="flex-1 py-4">
-          <nav className="px-3 space-y-1">
-            {sidebarLinks.map((link) => {
-              const isActive = pathname === link.href || 
-                (link.href !== "/admin" && pathname.startsWith(link.href));
+          {/* Navigation */}
+          <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+            {navigation.map((item) => {
+              const isActive = pathname === item.href || 
+                (item.href !== "/admin" && pathname.startsWith(item.href));
               
               return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                    isActive
-                      ? "bg-blue-50 text-blue-700"
-                      : "text-gray-700 hover:bg-gray-100"
-                  )}
-                >
-                  <link.icon className={cn("h-5 w-5", isActive ? "text-blue-600" : "text-gray-400")} />
-                  {link.label}
+                <Link key={item.name} href={item.href} onClick={() => setSidebarOpen(false)}>
+                  <div className={`group flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 ${
+                    isActive 
+                      ? 'bg-gradient-to-r from-orange-500/20 to-red-500/10 text-orange-500 border border-orange-500/20' 
+                      : 'hover:bg-white/5 text-gray-400 hover:text-white'
+                  }`}>
+                    <div className="flex items-center gap-3">
+                      <item.icon className={`w-5 h-5 ${isActive ? 'text-orange-500' : ''}`} />
+                      <span className="font-medium">{item.name}</span>
+                    </div>
+                    {item.badge && (
+                      <Badge className="bg-orange-500 text-white border-0 text-xs">
+                        {item.badge}
+                      </Badge>
+                    )}
+                    {isActive && (
+                      <ChevronRight className="w-4 h-4 text-orange-500" />
+                    )}
+                  </div>
                 </Link>
               );
             })}
           </nav>
 
-          <Separator className="my-4" />
-
-          <div className="px-4">
-            <div className="p-3 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white">
-              <p className="text-xs font-medium opacity-90">Store Location</p>
-              <p className="text-sm font-semibold mt-1">Nehru Place, Delhi</p>
-              <p className="text-xs mt-2 opacity-75">+91 98765 43210</p>
+          {/* Bottom Section */}
+          <div className="p-4 border-t border-gray-800">
+            <div className="glass-card rounded-xl p-4 mb-4">
+              <div className="flex items-center gap-3 mb-3">
+                <Zap className="w-5 h-5 text-yellow-500" />
+                <span className="font-medium text-sm">Pro Features</span>
+              </div>
+              <p className="text-xs text-gray-500 mb-3">Unlock advanced analytics and automation</p>
+              <Button size="sm" className="w-full bg-gradient-to-r from-orange-500 to-red-600 border-0 text-xs">
+                Upgrade Now
+              </Button>
             </div>
+            
+            <Link href="/">
+              <Button variant="ghost" className="w-full justify-start text-gray-400 hover:text-white hover:bg-white/5">
+                <LogOut className="w-4 h-4 mr-3" />
+                Back to Website
+              </Button>
+            </Link>
           </div>
-        </ScrollArea>
+        </div>
       </aside>
 
-      {/* Main content */}
-      <div className="lg:pl-64">
-        {/* Top bar */}
-        <header className="sticky top-0 z-30 flex items-center h-16 px-4 bg-white border-b border-gray-200 lg:px-6">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="lg:hidden"
-            onClick={() => setSidebarOpen(true)}
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
-
-          <div className="flex-1 flex items-center justify-between ml-4 lg:ml-0">
-            <h1 className="text-lg font-semibold text-gray-900">
-              {sidebarLinks.find(l => l.href === pathname)?.label || "Dashboard"}
-            </h1>
-            
+      {/* Main Content */}
+      <div className="lg:pl-72">
+        {/* Top Header */}
+        <header className="sticky top-0 z-30 glass border-b border-gray-800">
+          <div className="flex items-center justify-between px-4 lg:px-8 py-4">
             <div className="flex items-center gap-4">
-              <Link href="/" target="_blank">
-                <Button variant="outline" size="sm">
-                  View Website
-                </Button>
-              </Link>
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-medium">
+              <button 
+                onClick={() => setSidebarOpen(true)} 
+                className="lg:hidden p-2 hover:bg-white/10 rounded-lg"
+              >
+                <Menu className="w-6 h-6" />
+              </button>
+              
+              <div className="hidden md:block relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <Input 
+                  placeholder="Search inventory, orders..." 
+                  className="w-80 pl-10 bg-white/5 border-gray-800 rounded-xl text-sm"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <button className="relative p-2 hover:bg-white/10 rounded-xl transition-colors">
+                <Bell className="w-5 h-5 text-gray-400" />
+                <span className="absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full" />
+              </button>
+              
+              <div className="flex items-center gap-3 pl-4 border-l border-gray-800">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center text-sm font-bold">
                   A
+                </div>
+                <div className="hidden sm:block">
+                  <p className="text-sm font-medium">Admin</p>
+                  <p className="text-xs text-gray-500">admin@mobilehub.in</p>
                 </div>
               </div>
             </div>
           </div>
         </header>
 
-        {/* Page content */}
-        <main className="p-4 lg:p-6">{children}</main>
+        {/* Page Content */}
+        <main className="relative p-4 lg:p-8">
+          {children}
+        </main>
       </div>
     </div>
   );
