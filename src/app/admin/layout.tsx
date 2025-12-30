@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { 
   LayoutDashboard, 
   Smartphone, 
@@ -16,12 +16,14 @@ import {
   Menu,
   X,
   ChevronRight,
-  Zap
+  Zap,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { isAdminLoggedIn, getAdminSession, clearAdminSession } from "@/lib/auth";
 
 const navigation = [
   { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
@@ -38,7 +40,60 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [adminUser, setAdminUser] = useState<string | null>(null);
+
+  // Check authentication on mount
+  useEffect(() => {
+    // Skip auth check for login page
+    if (pathname === "/admin/login") {
+      setIsLoading(false);
+      return;
+    }
+
+    const checkAuth = () => {
+      if (isAdminLoggedIn()) {
+        const session = getAdminSession();
+        setAdminUser(session?.username || "Admin");
+        setIsAuthenticated(true);
+      } else {
+        router.push("/admin/login");
+      }
+      setIsLoading(false);
+    };
+
+    checkAuth();
+  }, [pathname, router]);
+
+  const handleLogout = () => {
+    clearAdminSession();
+    router.push("/admin/login");
+  };
+
+  // Show login page without layout
+  if (pathname === "/admin/login") {
+    return <>{children}</>;
+  }
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#030712] flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 text-orange-500 animate-spin mx-auto mb-4" />
+          <p className="text-gray-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render layout if not authenticated
+  if (!isAuthenticated) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-[#030712] text-white">
@@ -131,6 +186,15 @@ export default function AdminLayout({
                 Back to Website
               </Button>
             </Link>
+            
+            <Button 
+              variant="ghost" 
+              onClick={handleLogout}
+              className="w-full justify-start text-red-400 hover:text-red-300 hover:bg-red-500/10 mt-2"
+            >
+              <LogOut className="w-4 h-4 mr-3" />
+              Logout
+            </Button>
           </div>
         </div>
       </aside>
@@ -165,11 +229,11 @@ export default function AdminLayout({
               
               <div className="flex items-center gap-3 pl-4 border-l border-gray-800">
                 <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center text-sm font-bold">
-                  A
+                  {adminUser?.charAt(0).toUpperCase() || "A"}
                 </div>
                 <div className="hidden sm:block">
-                  <p className="text-sm font-medium">Admin</p>
-                  <p className="text-xs text-gray-500">admin@mobilehub.in</p>
+                  <p className="text-sm font-medium">{adminUser || "Admin"}</p>
+                  <p className="text-xs text-gray-500">Administrator</p>
                 </div>
               </div>
             </div>

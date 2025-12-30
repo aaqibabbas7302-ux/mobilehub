@@ -7,9 +7,8 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-// Convert paise to INR display format
-export function formatPrice(paise: number): string {
-  const rupees = paise / 100;
+// Format rupees for display (prices are now stored directly in rupees)
+export function formatPrice(rupees: number): string {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
@@ -17,14 +16,14 @@ export function formatPrice(paise: number): string {
   }).format(rupees);
 }
 
-// Convert INR to paise for storage
+// Legacy functions - kept for backwards compatibility but no longer needed
+// since prices are now stored as rupees directly
 export function toPaise(rupees: number): number {
-  return Math.round(rupees * 100);
+  return rupees; // No conversion needed anymore
 }
 
-// Convert paise to INR for display/forms
 export function toRupees(paise: number): number {
-  return paise / 100;
+  return paise; // No conversion needed anymore
 }
 
 // Format phone number for display
@@ -70,10 +69,10 @@ export function getStatusColor(status: string): string {
   return colors[status] || 'bg-gray-100 text-gray-800 border-gray-200';
 }
 
-// Calculate discount percentage
-export function calculateDiscount(originalPaise: number, sellingPaise: number): number {
-  if (!originalPaise || originalPaise <= sellingPaise) return 0;
-  return Math.round(((originalPaise - sellingPaise) / originalPaise) * 100);
+// Calculate discount percentage (prices are in rupees)
+export function calculateDiscount(originalPrice: number, sellingPrice: number): number {
+  if (!originalPrice || originalPrice <= sellingPrice) return 0;
+  return Math.round(((originalPrice - sellingPrice) / originalPrice) * 100);
 }
 
 // Format date for display
@@ -134,6 +133,6 @@ export function getWhatsAppLink(phone: string, message?: string): string {
 }
 
 // Generate WhatsApp inquiry message
-export function generateInquiryMessage(phone: { brand: string; model_name: string; variant?: string; selling_price_paise: number }): string {
-  return `Hi! I'm interested in the ${phone.brand} ${phone.model_name}${phone.variant ? ` (${phone.variant})` : ''} listed at ${formatPrice(phone.selling_price_paise)}. Is it still available?`;
+export function generateInquiryMessage(phone: { brand: string; model_name: string; variant?: string; selling_price: number }): string {
+  return `Hi! I'm interested in the ${phone.brand} ${phone.model_name}${phone.variant ? ` (${phone.variant})` : ''} listed at ${formatPrice(phone.selling_price)}. Is it still available?`;
 }
