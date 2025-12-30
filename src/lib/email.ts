@@ -1,6 +1,9 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Initialize Resend only if API key is present to avoid build errors
+const resend = process.env.RESEND_API_KEY 
+  ? new Resend(process.env.RESEND_API_KEY) 
+  : null;
 
 interface SendInvoiceEmailParams {
   to: string;
@@ -17,12 +20,14 @@ export async function sendInvoiceEmail({
   amount,
   pdfBuffer,
 }: SendInvoiceEmailParams) {
-  if (!process.env.RESEND_API_KEY) {
-    throw new Error("RESEND_API_KEY is not configured");
+  if (!resend) {
+    console.warn("RESEND_API_KEY is missing. Email sending skipped.");
+    return { success: false, error: "Email service not configured" };
   }
 
-  const { data, error } = await resend.emails.send({
-    from: "MobileHub Delhi <invoices@mobilehub.in>",
+  try {
+    const { data, error } = await resend.emails.send({
+      from: "MobileHub Delhi <invoices@mobilehub.in>",
     to: [to],
     subject: `Your Invoice ${orderNumber} - MobileHub Delhi`,
     html: `
@@ -99,11 +104,16 @@ export async function sendInvoiceEmail({
         content: Buffer.from(pdfBuffer),
       },
     ],
-  });
+    });
 
-  if (error) {
-    throw error;
+    if (error) {
+      console.error("Resend error:", error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, data };
+  } catch (error) {
+    console.error("Error sending email:", error);
+    return { success: false, error: "Failed to send email" };
   }
-
-  return data;
 }
