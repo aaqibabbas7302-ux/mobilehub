@@ -30,7 +30,8 @@ const navigation = [
   { name: "Inventory", href: "/admin/inventory", icon: Smartphone },
   { name: "Customers", href: "/admin/customers", icon: Users },
   { name: "Orders", href: "/admin/orders", icon: ShoppingCart },
-  { name: "Inquiries", href: "/admin/inquiries", icon: MessageSquare, badge: 5 },
+  { name: "WhatsApp", href: "/admin/conversations", icon: Phone, badge: "New" },
+  { name: "Inquiries", href: "/admin/inquiries", icon: MessageSquare },
   { name: "Settings", href: "/admin/settings", icon: Settings },
 ];
 

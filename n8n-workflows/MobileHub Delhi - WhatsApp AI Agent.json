@@ -252,6 +252,72 @@
         1664,
         288
       ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare inbound customer message for conversations API\nconst extractedData = $('Extract Message Details').item.json;\nconst waMessage = $('WhatsApp Message Received').item.json;\n\nreturn {\n  phone: extractedData.customerPhone,\n  customer_name: extractedData.customerName,\n  direction: 'inbound',\n  message_text: extractedData.messageText,\n  message_id: waMessage.message?.id || waMessage.id?.id || `inbound-${Date.now()}`,\n  is_bot_reply: false,\n  ai_context: {\n    intent: extractedData.intent,\n    detected_brand: extractedData.detectedBrand,\n    budget: extractedData.budget\n  }\n};"
+      },
+      "id": "prepare-inbound-message",
+      "name": "Prepare Inbound Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://mobilehub-sand.vercel.app/api/conversations",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "save-inbound-message",
+      "name": "Save Inbound Message",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1664,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare outbound bot reply for conversations API\nconst extractedData = $('Extract Message Details').item.json;\n\n// Get the bot reply - could be from Welcome Message or AI Agent\nlet botReply = '';\ntry {\n  botReply = $('Welcome Message').item.json.response || '';\n} catch (e) {\n  try {\n    botReply = $('AI Agent').item.json.output || '';\n  } catch (e2) {\n    botReply = $json.output || $json.response || '';\n  }\n}\n\nreturn {\n  phone: extractedData.customerPhone,\n  customer_name: extractedData.customerName,\n  direction: 'outbound',\n  message_text: botReply,\n  message_id: `bot-${Date.now()}`,\n  is_bot_reply: true,\n  ai_context: {\n    intent: extractedData.intent,\n    detected_brand: extractedData.detectedBrand,\n    budget: extractedData.budget\n  }\n};"
+      },
+      "id": "prepare-outbound-message",
+      "name": "Prepare Outbound Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://mobilehub-sand.vercel.app/api/conversations",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "save-outbound-message",
+      "name": "Save Outbound Message",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1664,
+        720
+      ]
     }
   ],
   "pinData": {},
@@ -380,6 +446,16 @@
             "node": "Prepare Inquiry Data",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Prepare Inbound Message",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prepare Outbound Message",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -389,6 +465,28 @@
         [
           {
             "node": "Save to Inquiries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Inbound Message": {
+      "main": [
+        [
+          {
+            "node": "Save Inbound Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Outbound Message": {
+      "main": [
+        [
+          {
+            "node": "Save Outbound Message",
             "type": "main",
             "index": 0
           }

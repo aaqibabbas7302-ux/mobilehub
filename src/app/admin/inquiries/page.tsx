@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { 
   Search, 
   MoreHorizontal,
@@ -13,7 +14,8 @@ import {
   Loader2,
   RefreshCw,
   Globe,
-  TrendingUp
+  TrendingUp,
+  ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -95,6 +97,7 @@ const sourceConfig: Record<string, { label: string; color: string; icon: React.E
 };
 
 export default function InquiriesPage() {
+  const router = useRouter();
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -110,6 +113,19 @@ export default function InquiriesPage() {
     newToday: 0,
     conversionRate: 0,
   });
+
+  // Group inquiries by phone number to show only latest per user
+  const groupedInquiries = inquiries.reduce((acc, inquiry) => {
+    const phone = inquiry.customer_phone;
+    if (!acc[phone]) {
+      acc[phone] = [];
+    }
+    acc[phone].push(inquiry);
+    return acc;
+  }, {} as Record<string, Inquiry[]>);
+
+  // Get latest inquiry for each phone
+  const uniqueInquiries = Object.values(groupedInquiries).map(group => group[0]);
 
   useEffect(() => {
     fetchInquiries();
@@ -172,10 +188,12 @@ export default function InquiriesPage() {
     }
   };
 
-  const filteredInquiries = inquiries.filter((inquiry) => {
+  // Filter unique inquiries based on search
+  const filteredInquiries = uniqueInquiries.filter((inquiry) => {
     const name = inquiry.customer_name || "";
     const phone = inquiry.customer_phone || "";
     const message = inquiry.inquiry_text || "";
+    
     const matchesSearch = 
       name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       phone.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -426,11 +444,20 @@ export default function InquiriesPage() {
                 <div className="flex gap-2">
                   <Button 
                     size="sm" 
-                    className="flex-1 rounded-lg"
-                    onClick={() => openWhatsApp(viewInquiry.customer_phone)}
+                    className="flex-1 rounded-lg bg-green-600 hover:bg-green-700"
+                    onClick={() => router.push(`/admin/conversations?phone=${viewInquiry.customer_phone}`)}
                   >
                     <MessageSquare className="w-4 h-4 mr-2" />
-                    WhatsApp
+                    View Chat
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="flex-1 rounded-lg border-gray-700"
+                    onClick={() => openWhatsApp(viewInquiry.customer_phone)}
+                  >
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    Open WA
                   </Button>
                   <Button 
                     size="sm" 
