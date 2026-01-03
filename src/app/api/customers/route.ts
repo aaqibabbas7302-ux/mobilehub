@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient();
     const body = await request.json();
 
-    const { name, email, phone, whatsapp_number, address, city, status, notes } = body;
+    const { name, email, phone, whatsapp_number, address, city, status, notes, custom_data } = body;
 
     if (!name || !phone) {
       return NextResponse.json(
@@ -85,6 +85,7 @@ export async function POST(request: NextRequest) {
       city: city || "Delhi",
       status: status || "new",
       notes: notes || null,
+      custom_data: custom_data || {},
     };
 
     const { data, error } = await supabase

@@ -1,0 +1,15 @@
+{
+  "name": "whatsapp-backend",
+  "version": "1.0.0",
+  "description": "Local WhatsApp server for MobileHub",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "qrcode": "^1.5.3",
+    "whatsapp-web.js": "^1.23.0"
+  }
+}

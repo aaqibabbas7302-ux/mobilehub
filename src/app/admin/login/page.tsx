@@ -6,7 +6,6 @@ import { Eye, EyeOff, Lock, User, Smartphone, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { validateCredentials, setAdminSession } from "@/lib/auth";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -21,14 +20,27 @@ export default function AdminLoginPage() {
     setError("");
     setIsLoading(true);
 
-    // Small delay for UX
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
 
-    if (validateCredentials(username, password)) {
-      setAdminSession(username);
-      router.push("/admin");
-    } else {
-      setError("Invalid username or password");
+      const data = await res.json();
+
+      if (data.success && data.user) {
+        // Store user session in localStorage
+        localStorage.setItem("admin_session", JSON.stringify({
+          ...data.user,
+          loginTime: new Date().toISOString(),
+        }));
+        router.push("/admin");
+      } else {
+        setError(data.error || "Invalid username or password");
+      }
+    } catch {
+      setError("Login failed. Please try again.");
     }
 
     setIsLoading(false);
@@ -142,7 +154,7 @@ export default function AdminLoginPage() {
 
         {/* Demo Credentials Hint (Remove in production) */}
         <div className="mt-4 text-center text-xs text-gray-600">
-          <p>Default: admin / mobilehub@123</p>
+          <p>Default: admin / admin123</p>
         </div>
       </div>
     </div>

@@ -17,11 +17,17 @@ import {
   TrendingUp,
   ShoppingCart,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  Upload,
+  FileSpreadsheet,
+  Settings2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import * as XLSX from 'xlsx';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -55,6 +61,17 @@ interface Customer {
   total_spent: number;
   created_at: string;
   updated_at: string;
+  custom_data?: Record<string, unknown>;
+}
+
+interface CustomField {
+  id: string;
+  table_name: string;
+  field_name: string;
+  field_label: string;
+  field_type: string;
+  options: string[] | null;
+  required: boolean;
 }
 
 interface Stats {
@@ -72,21 +89,26 @@ export default function CustomersPage() {
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [saving, setSaving] = useState(false);
+  const [importData, setImportData] = useState("");
   const [newCustomer, setNewCustomer] = useState({
     name: "",
     phone: "",
     email: "",
     status: "active",
   });
+  const [newCustomerCustomData, setNewCustomerCustomData] = useState<Record<string, unknown>>({});
   const [editCustomer, setEditCustomer] = useState({
     name: "",
     phone: "",
     email: "",
     status: "active",
   });
+  const [editCustomerCustomData, setEditCustomerCustomData] = useState<Record<string, unknown>>({});
+  const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [stats, setStats] = useState<Stats>({
     total: 0,
     vip: 0,
@@ -97,7 +119,20 @@ export default function CustomersPage() {
 
   useEffect(() => {
     fetchCustomers();
+    fetchCustomFields();
   }, [selectedStatus]);
+
+  const fetchCustomFields = async () => {
+    try {
+      const response = await fetch("/api/custom-fields?table=customers");
+      const data = await response.json();
+      if (data.fields) {
+        setCustomFields(data.fields);
+      }
+    } catch (error) {
+      console.error("Error fetching custom fields:", error);
+    }
+  };
 
   const fetchCustomers = async () => {
     try {
@@ -143,6 +178,7 @@ export default function CustomersPage() {
       email: customer.email || "",
       status: customer.status || "active",
     });
+    setEditCustomerCustomData(customer.custom_data || {});
     setShowEditModal(true);
   };
 
@@ -163,7 +199,7 @@ export default function CustomersPage() {
       const response = await fetch(`/api/customers/${selectedCustomer.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editCustomer),
+        body: JSON.stringify({ ...editCustomer, custom_data: editCustomerCustomData }),
       });
 
       if (response.ok) {
@@ -193,12 +229,13 @@ export default function CustomersPage() {
       const response = await fetch("/api/customers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newCustomer),
+        body: JSON.stringify({ ...newCustomer, custom_data: newCustomerCustomData }),
       });
 
       if (response.ok) {
         setShowAddModal(false);
         setNewCustomer({ name: "", phone: "", email: "", status: "active" });
+        setNewCustomerCustomData({});
         fetchCustomers();
       } else {
         const error = await response.json();
@@ -208,6 +245,74 @@ export default function CustomersPage() {
       console.error("Error adding customer:", error);
       alert("Failed to add customer");
     } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleImport = async () => {
+    if (!importData) {
+      alert("Please select a file to import");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      let customersToImport: any[] = [];
+
+      // Read file
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const data = e.target?.result;
+          const workbook = XLSX.read(data, { type: 'binary' });
+          const sheetName = workbook.SheetNames[0];
+          const sheet = workbook.Sheets[sheetName];
+          customersToImport = XLSX.utils.sheet_to_json(sheet);
+
+          if (!Array.isArray(customersToImport) || customersToImport.length === 0) {
+            alert("Invalid data format or empty file.");
+            setSaving(false);
+            return;
+          }
+
+          // Normalize keys to lowercase
+          customersToImport = customersToImport.map(c => {
+            const newObj: any = {};
+            Object.keys(c).forEach(key => {
+              newObj[key.toLowerCase().trim()] = c[key];
+            });
+            return newObj;
+          });
+
+          const response = await fetch("/api/customers/import", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ customers: customersToImport }),
+          });
+
+          const resData = await response.json();
+
+          if (response.ok) {
+            setShowImportModal(false);
+            setImportData("");
+            fetchCustomers();
+            alert(resData.message || "Import successful");
+          } else {
+            alert(resData.error || "Failed to import customers");
+          }
+        } catch (err) {
+          console.error("Error parsing file:", err);
+          alert("Failed to parse file");
+        } finally {
+          setSaving(false);
+        }
+      };
+
+      reader.readAsBinaryString(importData as any);
+
+    } catch (error) {
+      console.error("Error importing customers:", error);
+      alert("Failed to import customers");
       setSaving(false);
     }
   };
@@ -255,6 +360,14 @@ export default function CustomersPage() {
           >
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => setShowImportModal(true)}
+            className="border-gray-800 bg-white/5 hover:bg-white/10 rounded-xl"
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            Import
           </Button>
           <Button 
             onClick={() => setShowAddModal(true)}
@@ -430,6 +543,68 @@ export default function CustomersPage() {
         )}
       </div>
 
+      {/* Import Modal */}
+      <Dialog open={showImportModal} onOpenChange={setShowImportModal}>
+        <DialogContent className="bg-[#111827] border-gray-800 text-white sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Import Customers</DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Upload a CSV or Excel file containing customer data.
+              <br />
+              <span className="text-xs text-gray-500">
+                Supported formats: .csv, .xlsx, .xls
+                <br />
+                Required columns: Name, Phone
+                <br />
+                Optional columns: Email, City, Status
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Select File</Label>
+              <div className="flex items-center justify-center w-full">
+                <label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-700 border-dashed rounded-lg cursor-pointer bg-[#1f2937] hover:bg-gray-700 transition-colors">
+                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                    <FileSpreadsheet className="w-8 h-8 mb-3 text-gray-400" />
+                    <p className="mb-2 text-sm text-gray-400"><span className="font-semibold">Click to upload</span> or drag and drop</p>
+                    <p className="text-xs text-gray-500">CSV or Excel files</p>
+                  </div>
+                  <Input 
+                    id="dropzone-file" 
+                    type="file" 
+                    className="hidden" 
+                    accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+                    onChange={(e) => setImportData(e.target.files?.[0] as any)}
+                  />
+                </label>
+              </div>
+              {importData && (
+                <div className="text-sm text-green-500 flex items-center mt-2">
+                  <FileSpreadsheet className="w-4 h-4 mr-2" />
+                  Selected: {(importData as any).name}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setShowImportModal(false)} className="border-gray-700 text-gray-300 hover:bg-gray-800">
+              Cancel
+            </Button>
+            <Button onClick={handleImport} disabled={saving || !importData} className="bg-orange-600 hover:bg-orange-700">
+              {saving ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Importing...
+                </>
+              ) : (
+                "Import Customers"
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Add Customer Modal */}
       <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
         <DialogContent className="bg-gray-900 border-gray-800 max-w-md">
@@ -491,6 +666,75 @@ export default function CustomersPage() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Custom Fields */}
+            {customFields.length > 0 && (
+              <div className="space-y-4 border-t border-gray-800 pt-4">
+                <h4 className="text-sm font-medium text-gray-400 flex items-center gap-2">
+                  <Settings2 className="w-4 h-4" />
+                  Custom Fields
+                </h4>
+                {customFields.map((field) => (
+                  <div key={field.id} className="space-y-2">
+                    <Label>{field.field_label}</Label>
+                    {field.field_type === "text" && (
+                      <Input
+                        value={(newCustomerCustomData[field.field_name] as string) || ""}
+                        onChange={(e) => setNewCustomerCustomData({ ...newCustomerCustomData, [field.field_name]: e.target.value })}
+                        className="bg-white/5 border-gray-800 rounded-xl"
+                      />
+                    )}
+                    {field.field_type === "number" && (
+                      <Input
+                        type="number"
+                        value={(newCustomerCustomData[field.field_name] as string) || ""}
+                        onChange={(e) => setNewCustomerCustomData({ ...newCustomerCustomData, [field.field_name]: e.target.value })}
+                        className="bg-white/5 border-gray-800 rounded-xl"
+                      />
+                    )}
+                    {field.field_type === "date" && (
+                      <Input
+                        type="date"
+                        value={(newCustomerCustomData[field.field_name] as string) || ""}
+                        onChange={(e) => setNewCustomerCustomData({ ...newCustomerCustomData, [field.field_name]: e.target.value })}
+                        className="bg-white/5 border-gray-800 rounded-xl"
+                      />
+                    )}
+                    {field.field_type === "boolean" && (
+                      <div className="flex items-center gap-3">
+                        <Switch
+                          checked={(newCustomerCustomData[field.field_name] as boolean) || false}
+                          onCheckedChange={(checked) => setNewCustomerCustomData({ ...newCustomerCustomData, [field.field_name]: checked })}
+                        />
+                        <span className="text-gray-400 text-sm">{newCustomerCustomData[field.field_name] ? "Yes" : "No"}</span>
+                      </div>
+                    )}
+                    {field.field_type === "select" && field.options && (
+                      <Select 
+                        value={(newCustomerCustomData[field.field_name] as string) || ""}
+                        onValueChange={(value) => setNewCustomerCustomData({ ...newCustomerCustomData, [field.field_name]: value })}
+                      >
+                        <SelectTrigger className="bg-white/5 border-gray-800 rounded-xl">
+                          <SelectValue placeholder={`Select ${field.field_label}`} />
+                        </SelectTrigger>
+                        <SelectContent className="bg-gray-900 border-gray-800">
+                          {field.options.map((option) => (
+                            <SelectItem key={option} value={option}>{option}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                    {field.field_type === "textarea" && (
+                      <Textarea
+                        value={(newCustomerCustomData[field.field_name] as string) || ""}
+                        onChange={(e) => setNewCustomerCustomData({ ...newCustomerCustomData, [field.field_name]: e.target.value })}
+                        className="bg-white/5 border-gray-800 rounded-xl"
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
             
             <div className="flex gap-3 pt-4">
               <Button
@@ -583,6 +827,75 @@ export default function CustomersPage() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Custom Fields */}
+            {customFields.length > 0 && (
+              <div className="space-y-4 border-t border-gray-800 pt-4">
+                <h4 className="text-sm font-medium text-gray-400 flex items-center gap-2">
+                  <Settings2 className="w-4 h-4" />
+                  Custom Fields
+                </h4>
+                {customFields.map((field) => (
+                  <div key={field.id} className="space-y-2">
+                    <Label>{field.field_label}</Label>
+                    {field.field_type === "text" && (
+                      <Input
+                        value={(editCustomerCustomData[field.field_name] as string) || ""}
+                        onChange={(e) => setEditCustomerCustomData({ ...editCustomerCustomData, [field.field_name]: e.target.value })}
+                        className="bg-white/5 border-gray-800 rounded-xl"
+                      />
+                    )}
+                    {field.field_type === "number" && (
+                      <Input
+                        type="number"
+                        value={(editCustomerCustomData[field.field_name] as string) || ""}
+                        onChange={(e) => setEditCustomerCustomData({ ...editCustomerCustomData, [field.field_name]: e.target.value })}
+                        className="bg-white/5 border-gray-800 rounded-xl"
+                      />
+                    )}
+                    {field.field_type === "date" && (
+                      <Input
+                        type="date"
+                        value={(editCustomerCustomData[field.field_name] as string) || ""}
+                        onChange={(e) => setEditCustomerCustomData({ ...editCustomerCustomData, [field.field_name]: e.target.value })}
+                        className="bg-white/5 border-gray-800 rounded-xl"
+                      />
+                    )}
+                    {field.field_type === "boolean" && (
+                      <div className="flex items-center gap-3">
+                        <Switch
+                          checked={(editCustomerCustomData[field.field_name] as boolean) || false}
+                          onCheckedChange={(checked) => setEditCustomerCustomData({ ...editCustomerCustomData, [field.field_name]: checked })}
+                        />
+                        <span className="text-gray-400 text-sm">{editCustomerCustomData[field.field_name] ? "Yes" : "No"}</span>
+                      </div>
+                    )}
+                    {field.field_type === "select" && field.options && (
+                      <Select 
+                        value={(editCustomerCustomData[field.field_name] as string) || ""}
+                        onValueChange={(value) => setEditCustomerCustomData({ ...editCustomerCustomData, [field.field_name]: value })}
+                      >
+                        <SelectTrigger className="bg-white/5 border-gray-800 rounded-xl">
+                          <SelectValue placeholder={`Select ${field.field_label}`} />
+                        </SelectTrigger>
+                        <SelectContent className="bg-gray-900 border-gray-800">
+                          {field.options.map((option) => (
+                            <SelectItem key={option} value={option}>{option}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                    {field.field_type === "textarea" && (
+                      <Textarea
+                        value={(editCustomerCustomData[field.field_name] as string) || ""}
+                        onChange={(e) => setEditCustomerCustomData({ ...editCustomerCustomData, [field.field_name]: e.target.value })}
+                        className="bg-white/5 border-gray-800 rounded-xl"
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
             
             <div className="flex gap-3 pt-4">
               <Button

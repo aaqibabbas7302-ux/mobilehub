@@ -57,7 +57,7 @@ export async function PUT(
     const supabase = await createClient();
     const body = await request.json();
 
-    const { name, email, phone, whatsapp_number, address, city, status, notes } = body;
+    const { name, email, phone, whatsapp_number, address, city, status, notes, custom_data } = body;
 
     const updateData: Record<string, unknown> = {};
     if (name) updateData.name = name;
@@ -68,6 +68,7 @@ export async function PUT(
     if (city !== undefined) updateData.city = city;
     if (status) updateData.status = status;
     if (notes !== undefined) updateData.notes = notes;
+    if (custom_data !== undefined) updateData.custom_data = custom_data;
 
     const { data, error } = await supabase
       .from("customers")

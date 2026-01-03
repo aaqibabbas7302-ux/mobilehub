@@ -102,6 +102,7 @@ export async function POST(request: NextRequest) {
       sale_channel,
       status: inputStatus,
       payment_status: inputPaymentStatus,
+      custom_data,
     } = body;
 
     if (!customer_name || !customer_phone || !phone_name || !amount) {
@@ -138,6 +139,7 @@ export async function POST(request: NextRequest) {
       sale_channel: sale_channel || "Store",
       status: inputStatus || "pending",
       payment_status: inputPaymentStatus || "pending",
+      custom_data: custom_data || {},
     };
 
     const { data, error } = await supabase

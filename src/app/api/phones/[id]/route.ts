@@ -126,6 +126,7 @@ export async function PUT(
       description,
       status,
       images,
+      custom_data,
     } = body;
 
     // Validate required fields
@@ -157,6 +158,7 @@ export async function PUT(
       thumbnail_url: images?.[0] || null,
       status: status || "Available",
       description: description || null,
+      custom_data: custom_data || {},
     };
 
     const { data, error } = await supabase

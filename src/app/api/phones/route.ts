@@ -61,6 +61,7 @@ export async function POST(request: NextRequest) {
       description,
       quantity,
       images,
+      custom_data,
     } = body;
 
     // Validate required fields
@@ -105,6 +106,7 @@ export async function POST(request: NextRequest) {
       status: "Available",
       location: "Store",
       description: description || null,
+      custom_data: custom_data || {},
     };
 
     const { data, error } = await supabase

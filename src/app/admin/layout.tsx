@@ -17,20 +17,22 @@ import {
   X,
   ChevronRight,
   Zap,
-  Loader2
+  Loader2,
+  UserPlus
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useState, useEffect } from "react";
-import { isAdminLoggedIn, getAdminSession, clearAdminSession } from "@/lib/auth";
 
 const navigation = [
   { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { name: "Inventory", href: "/admin/inventory", icon: Smartphone },
   { name: "Customers", href: "/admin/customers", icon: Users },
+  { name: "Leads", href: "/admin/leads", icon: UserPlus, badge: "New" },
+  { name: "Marketing", href: "/admin/marketing", icon: Zap },
   { name: "Orders", href: "/admin/orders", icon: ShoppingCart },
-  { name: "WhatsApp", href: "/admin/conversations", icon: Phone, badge: "New" },
+  { name: "WhatsApp", href: "/admin/conversations", icon: Phone },
   { name: "Inquiries", href: "/admin/inquiries", icon: MessageSquare },
   { name: "Settings", href: "/admin/settings", icon: Settings },
 ];
@@ -45,7 +47,7 @@ export default function AdminLayout({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [adminUser, setAdminUser] = useState<string | null>(null);
+  const [adminUser, setAdminUser] = useState<{ username: string; full_name?: string; role?: string } | null>(null);
 
   // Check authentication on mount
   useEffect(() => {
@@ -56,10 +58,19 @@ export default function AdminLayout({
     }
 
     const checkAuth = () => {
-      if (isAdminLoggedIn()) {
-        const session = getAdminSession();
-        setAdminUser(session?.username || "Admin");
-        setIsAuthenticated(true);
+      const sessionStr = localStorage.getItem("admin_session");
+      if (sessionStr) {
+        try {
+          const session = JSON.parse(sessionStr);
+          setAdminUser({
+            username: session.username || "Admin",
+            full_name: session.full_name,
+            role: session.role,
+          });
+          setIsAuthenticated(true);
+        } catch {
+          router.push("/admin/login");
+        }
       } else {
         router.push("/admin/login");
       }
@@ -70,7 +81,7 @@ export default function AdminLayout({
   }, [pathname, router]);
 
   const handleLogout = () => {
-    clearAdminSession();
+    localStorage.removeItem("admin_session");
     router.push("/admin/login");
   };
 
@@ -170,16 +181,20 @@ export default function AdminLayout({
 
           {/* Bottom Section */}
           <div className="p-4 border-t border-gray-800">
-            <div className="glass-card rounded-xl p-4 mb-4">
-              <div className="flex items-center gap-3 mb-3">
-                <Zap className="w-5 h-5 text-yellow-500" />
-                <span className="font-medium text-sm">Pro Features</span>
+            {/* User Info */}
+            {adminUser && (
+              <div className="glass-card rounded-xl p-4 mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-pink-600 flex items-center justify-center text-white font-semibold">
+                    {(adminUser.full_name || adminUser.username).charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{adminUser.full_name || adminUser.username}</p>
+                    <p className="text-xs text-gray-500 capitalize">{adminUser.role?.replace("_", " ") || "Admin"}</p>
+                  </div>
+                </div>
               </div>
-              <p className="text-xs text-gray-500 mb-3">Unlock advanced analytics and automation</p>
-              <Button size="sm" className="w-full bg-gradient-to-r from-orange-500 to-red-600 border-0 text-xs">
-                Upgrade Now
-              </Button>
-            </div>
+            )}
             
             <Link href="/">
               <Button variant="ghost" className="w-full justify-start text-gray-400 hover:text-white hover:bg-white/5">
@@ -230,11 +245,11 @@ export default function AdminLayout({
               
               <div className="flex items-center gap-3 pl-4 border-l border-gray-800">
                 <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center text-sm font-bold">
-                  {adminUser?.charAt(0).toUpperCase() || "A"}
+                  {(adminUser?.full_name || adminUser?.username || "A").charAt(0).toUpperCase()}
                 </div>
                 <div className="hidden sm:block">
-                  <p className="text-sm font-medium">{adminUser || "Admin"}</p>
-                  <p className="text-xs text-gray-500">Administrator</p>
+                  <p className="text-sm font-medium">{adminUser?.full_name || adminUser?.username || "Admin"}</p>
+                  <p className="text-xs text-gray-500 capitalize">{adminUser?.role?.replace("_", " ") || "Administrator"}</p>
                 </div>
               </div>
             </div>

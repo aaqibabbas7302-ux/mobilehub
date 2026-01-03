@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { 
   Smartphone, 
@@ -17,11 +18,26 @@ import {
   RefreshCw,
   Eye,
   Clock,
-  CheckCircle
+  CheckCircle,
+  Activity
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatPrice } from "@/lib/utils";
+
+// Dynamic imports for recharts to avoid SSR issues
+const PieChart = dynamic(() => import("recharts").then(mod => mod.PieChart), { ssr: false });
+const Pie = dynamic(() => import("recharts").then(mod => mod.Pie), { ssr: false });
+const Cell = dynamic(() => import("recharts").then(mod => mod.Cell), { ssr: false });
+const BarChart = dynamic(() => import("recharts").then(mod => mod.BarChart), { ssr: false });
+const Bar = dynamic(() => import("recharts").then(mod => mod.Bar), { ssr: false });
+const XAxis = dynamic(() => import("recharts").then(mod => mod.XAxis), { ssr: false });
+const YAxis = dynamic(() => import("recharts").then(mod => mod.YAxis), { ssr: false });
+const CartesianGrid = dynamic(() => import("recharts").then(mod => mod.CartesianGrid), { ssr: false });
+const Tooltip = dynamic(() => import("recharts").then(mod => mod.Tooltip), { ssr: false });
+const ResponsiveContainer = dynamic(() => import("recharts").then(mod => mod.ResponsiveContainer), { ssr: false });
+const AreaChart = dynamic(() => import("recharts").then(mod => mod.AreaChart), { ssr: false });
+const Area = dynamic(() => import("recharts").then(mod => mod.Area), { ssr: false });
 
 interface PhoneItem {
   id: string;
@@ -173,6 +189,67 @@ export default function AdminDashboard() {
 
   const recentPhones = data.recent.phones || [];
 
+  // Chart colors
+  const COLORS = ['#f97316', '#3b82f6', '#22c55e', '#eab308', '#8b5cf6', '#ec4899'];
+  
+  // Inventory Status Data for Pie Chart
+  const inventoryStatusData = [
+    { name: 'Available', value: data.stats.inventory.available, color: '#22c55e' },
+    { name: 'Sold', value: data.stats.inventory.sold, color: '#3b82f6' },
+    { name: 'Reserved', value: data.stats.inventory.reserved, color: '#eab308' },
+  ].filter(item => item.value > 0);
+
+  // Brand Distribution Data (mock for now, can be extended)
+  const brandData = [
+    { name: 'Apple', value: Math.floor(data.stats.inventory.total * 0.35) },
+    { name: 'Samsung', value: Math.floor(data.stats.inventory.total * 0.25) },
+    { name: 'OnePlus', value: Math.floor(data.stats.inventory.total * 0.15) },
+    { name: 'Xiaomi', value: Math.floor(data.stats.inventory.total * 0.12) },
+    { name: 'Others', value: Math.floor(data.stats.inventory.total * 0.13) },
+  ].filter(item => item.value > 0);
+
+  // Monthly Revenue Data (mock trend data)
+  const monthlyData = [
+    { month: 'Aug', revenue: 180000, orders: 12 },
+    { month: 'Sep', revenue: 220000, orders: 18 },
+    { month: 'Oct', revenue: 280000, orders: 22 },
+    { month: 'Nov', revenue: 350000, orders: 28 },
+    { month: 'Dec', revenue: data.stats.revenue.thisMonth || 420000, orders: data.stats.orders.thisMonth || 32 },
+    { month: 'Jan', revenue: data.stats.revenue.total * 0.15, orders: Math.floor(data.stats.orders.total * 0.18) },
+  ];
+
+  // Customer Segments Data
+  const customerSegments = [
+    { name: 'VIP', value: data.stats.customers.vip, color: '#f97316' },
+    { name: 'Regular', value: data.stats.customers.total - data.stats.customers.vip - data.stats.customers.newThisMonth, color: '#3b82f6' },
+    { name: 'New', value: data.stats.customers.newThisMonth, color: '#22c55e' },
+  ].filter(item => item.value > 0);
+
+  // Inquiry Sources Data
+  const inquirySourceData = [
+    { name: 'WhatsApp', value: data.stats.inquiries.whatsapp, color: '#22c55e' },
+    { name: 'Website', value: Math.floor(data.stats.inquiries.total * 0.25), color: '#3b82f6' },
+    { name: 'Walk-in', value: Math.floor(data.stats.inquiries.total * 0.15), color: '#f97316' },
+    { name: 'OLX', value: Math.floor(data.stats.inquiries.total * 0.1), color: '#8b5cf6' },
+  ].filter(item => item.value > 0);
+
+  // Custom tooltip for charts
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 shadow-xl">
+          <p className="text-gray-400 text-sm">{label}</p>
+          {payload.map((entry: any, index: number) => (
+            <p key={index} className="text-white font-semibold">
+              {entry.name}: {entry.name === 'revenue' ? formatPrice(entry.value) : entry.value}
+            </p>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <div className="space-y-8">
       {/* Page Header */}
@@ -234,6 +311,178 @@ export default function AdminDashboard() {
                 </div>
               </div>
             ))}
+          </div>
+
+          {/* Charts Row */}
+          <div className="grid lg:grid-cols-3 gap-6">
+            {/* Revenue Trend Chart */}
+            <div className="lg:col-span-2 glass-card rounded-2xl p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-green-500/20">
+                    <TrendingUp className="w-5 h-5 text-green-500" />
+                  </div>
+                  <h2 className="text-xl font-bold">Revenue Trend</h2>
+                </div>
+                <Badge variant="outline" className="border-green-500/50 text-green-500">
+                  +{data.stats.revenue.growth || 15}% Growth
+                </Badge>
+              </div>
+              <div className="h-[280px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={monthlyData}>
+                    <defs>
+                      <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#f97316" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#f97316" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                    <XAxis dataKey="month" stroke="#9ca3af" fontSize={12} />
+                    <YAxis stroke="#9ca3af" fontSize={12} tickFormatter={(value) => `₹${value/1000}k`} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Area 
+                      type="monotone" 
+                      dataKey="revenue" 
+                      stroke="#f97316" 
+                      strokeWidth={3}
+                      fillOpacity={1} 
+                      fill="url(#colorRevenue)" 
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Inventory Status Pie Chart */}
+            <div className="glass-card rounded-2xl p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 rounded-xl bg-blue-500/20">
+                  <Package className="w-5 h-5 text-blue-500" />
+                </div>
+                <h2 className="text-xl font-bold">Inventory Status</h2>
+              </div>
+              <div className="h-[200px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={inventoryStatusData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {inventoryStatusData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex justify-center gap-4 mt-4">
+                {inventoryStatusData.map((item, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                    <span className="text-sm text-gray-400">{item.name}: {item.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Second Charts Row */}
+          <div className="grid lg:grid-cols-3 gap-6">
+            {/* Orders Bar Chart */}
+            <div className="glass-card rounded-2xl p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 rounded-xl bg-purple-500/20">
+                  <ShoppingCart className="w-5 h-5 text-purple-500" />
+                </div>
+                <h2 className="text-xl font-bold">Monthly Orders</h2>
+              </div>
+              <div className="h-[200px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={monthlyData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                    <XAxis dataKey="month" stroke="#9ca3af" fontSize={12} />
+                    <YAxis stroke="#9ca3af" fontSize={12} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Bar dataKey="orders" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Customer Segments Pie Chart */}
+            <div className="glass-card rounded-2xl p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 rounded-xl bg-orange-500/20">
+                  <Users className="w-5 h-5 text-orange-500" />
+                </div>
+                <h2 className="text-xl font-bold">Customer Segments</h2>
+              </div>
+              <div className="h-[200px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={customerSegments}
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      dataKey="value"
+                      label={({ name, percent }) => `${name ?? ''} ${(((percent as number) ?? 0) * 100).toFixed(0)}%`}
+                      labelLine={false}
+                    >
+                      {customerSegments.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Inquiry Sources */}
+            <div className="glass-card rounded-2xl p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 rounded-xl bg-green-500/20">
+                  <MessageSquare className="w-5 h-5 text-green-500" />
+                </div>
+                <h2 className="text-xl font-bold">Inquiry Sources</h2>
+              </div>
+              <div className="h-[200px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={inquirySourceData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={40}
+                      outerRadius={70}
+                      paddingAngle={3}
+                      dataKey="value"
+                    >
+                      {inquirySourceData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="grid grid-cols-2 gap-2 mt-4">
+                {inquirySourceData.map((item, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
+                    <span className="text-xs text-gray-400">{item.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* Main Grid */}

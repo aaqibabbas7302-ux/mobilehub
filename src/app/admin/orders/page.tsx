@@ -52,6 +52,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { formatPrice } from "@/lib/utils";
+import { CustomFieldsForm } from "@/components/custom-fields-form";
 
 interface Order {
   id: string;
@@ -77,6 +78,7 @@ interface Order {
   invoice_sent_at: string | null;
   notes: string | null;
   created_at: string;
+  custom_data?: Record<string, unknown>;
 }
 
 interface Stats {
@@ -184,6 +186,7 @@ function OrdersPageContent() {
     sale_channel: "Store",
     notes: "",
   });
+  const [orderCustomData, setOrderCustomData] = useState<Record<string, unknown>>({});
 
   useEffect(() => {
     fetchOrders();
@@ -320,6 +323,7 @@ function OrdersPageContent() {
           notes: orderForm.notes || null,
           status: "confirmed",
           payment_status: "paid",
+          custom_data: orderCustomData,
         }),
       });
 
@@ -357,6 +361,7 @@ function OrdersPageContent() {
       sale_channel: "Store",
       notes: "",
     });
+    setOrderCustomData({});
     setPhoneSearch("");
     setCustomerSearch("");
   };
@@ -915,6 +920,13 @@ function OrdersPageContent() {
               />
             </div>
 
+            {/* Custom Fields */}
+            <CustomFieldsForm
+              entityType="orders"
+              values={orderCustomData}
+              onChange={setOrderCustomData}
+            />
+
             {/* Actions */}
             <div className="flex justify-end gap-3 pt-4 border-t border-gray-800">
               <Button
@@ -1022,6 +1034,21 @@ function OrdersPageContent() {
                   </Badge>
                 </div>
               </div>
+
+              {/* Custom Fields */}
+              {selectedOrder.custom_data && Object.keys(selectedOrder.custom_data).length > 0 && (
+                <div className="glass-card rounded-xl p-4">
+                  <h4 className="text-sm font-medium text-gray-500 mb-2">Additional Details</h4>
+                  <div className="space-y-2">
+                    {Object.entries(selectedOrder.custom_data).map(([key, value]) => (
+                      <div key={key} className="flex justify-between items-center">
+                        <span className="text-sm text-gray-400 capitalize">{key.replace(/_/g, " ")}</span>
+                        <span className="text-sm">{String(value)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Actions */}
               <div className="flex gap-2">
