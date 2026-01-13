@@ -15,15 +15,14 @@ services:
       - key: PUPPETEER_EXECUTABLE_PATH
         value: /usr/bin/chromium
         scope: private
-    mounts:
-      - type: persistent
-        name: whatsapp-backend-data
-        mountPath: /data
-        sizeGB: 10
-    healthCheck:
+    disks:
+      - name: whatsapp-backend-data
+        size_gb: 10
+        mount_path: /data
+    health_check:
       path: /status
       protocol: http
-      intervalSeconds: 10
-      timeoutSeconds: 5
-      healthyThreshold: 1
-      unhealthyThreshold: 3
+      interval_seconds: 10
+      timeout_seconds: 5
+      healthy_threshold: 1
+      unhealthy_threshold: 3
