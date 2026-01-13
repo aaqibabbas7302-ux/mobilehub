@@ -3,7 +3,6 @@ services:
     name: whatsapp-backend
     env: docker
     plan: starter
-    repo: .
     branch: main
     buildCommand: ''
     dockerContext: whatsapp-backend
