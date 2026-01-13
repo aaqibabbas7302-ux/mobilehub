@@ -8,6 +8,11 @@ services:
     buildCommand: ''
     dockerContext: whatsapp-backend
     dockerfilePath: Dockerfile
+    healthCheckPath: /status
+    disk:
+      name: whatsapp-backend-disk
+      mountPath: /data
+      sizeGB: 10
     envVars:
       - key: WA_DATA_PATH
         value: /data/wwebjs_auth
@@ -15,8 +20,8 @@ services:
       - key: PUPPETEER_EXECUTABLE_PATH
         value: /usr/bin/chromium
         scope: private
-    # Note: Persistent disks and health checks can be configured in the Render dashboard
-    # or with the provider's exact manifest schema. These fields were removed to
-    # avoid schema validation errors in the editor. If you want the manifest to
-    # create a disk and configure a health check automatically, tell me and I
-    # will update this file after confirming the exact Render manifest keys.
+    # Persistent disk and health check are defined above using the official
+    # render.yaml schema fields: `disk` and `healthCheckPath`.
+    # - `disk.mountPath` should match `WA_DATA_PATH` so LocalAuth data is persisted.
+    # - If your editor still shows validation errors, ensure it uses the Render
+    #   schema from https://render.com/schema/render.yaml.json
