@@ -2,16 +2,15 @@ services:
   - type: web
     name: whatsapp-backend
     env: docker
-    plan: starter
+    plan: free
     branch: main
     buildCommand: ''
     dockerContext: whatsapp-backend
     dockerfilePath: Dockerfile
     healthCheckPath: /status
-    disk:
-      name: whatsapp-backend-disk
-      mountPath: /data
-      sizeGB: 10
+    # disk removed to allow free-tier deploys. Persistent data will not be retained
+    # across restarts on free instances. To persist auth data, consider mounting a
+    # paid persistent disk or using an external storage (S3, Cloudinary, DB, etc.).
     envVars:
       - key: WA_DATA_PATH
         value: /data/wwebjs_auth
