@@ -1,0 +1,11 @@
+.git
+node_modules
+.DS_Store
+.wwebjs_cache
+.wwebjs_auth
+npm-debug.log
+logs
+*.log
+coverage
+dist
+build

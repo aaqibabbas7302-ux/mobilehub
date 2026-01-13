@@ -4,7 +4,7 @@ const qrcode = require('qrcode');
 const cors = require('cors');
 
 const app = express();
-const port = 3001;
+const port = process.env.PORT || 3001;
 
 app.use(cors());
 app.use(express.json());
@@ -15,11 +15,15 @@ let isAuthenticated = false;
 
 console.log("Initializing WhatsApp Client...");
 
+const waDataPath = process.env.WA_DATA_PATH || './.wwebjs_auth';
+const puppeteerExecutablePath = process.env.PUPPETEER_EXECUTABLE_PATH || undefined;
+
 const client = new Client({
-    authStrategy: new LocalAuth(),
+    authStrategy: new LocalAuth({ clientId: 'mobilehub', dataPath: waDataPath }),
     puppeteer: {
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
-        headless: true
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+        headless: true,
+        executablePath: puppeteerExecutablePath
     }
 });
 
